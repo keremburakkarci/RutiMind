@@ -8,6 +8,8 @@ import type { SelectedSkill } from '../types';
 // Root Stack
 export type RootStackParamList = {
   Main: undefined;
+  Education: undefined;
+  SelfManagement: undefined;
   Auth: undefined;
   ParentDashboard: undefined;
   StudentFlow: undefined;

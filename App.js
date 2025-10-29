@@ -288,22 +288,32 @@ export default function App() {
     );
   };
 
-  // Eğitim videoları ekranı (şimdilik basit)
-  const EducationScreen = () => (
-    <SafeAreaView style={styles.darkContainer}>
-      <View style={styles.darkScreenHeader}>
-        <TouchableOpacity onPress={() => setCurrentScreen('main')}>
-          <Text style={styles.darkBackButton}>← Geri</Text>
-        </TouchableOpacity>
-        <Text style={styles.darkScreenTitle}>Eğitim Videoları</Text>
-        <View style={styles.placeholder} />
-      </View>
-      
-      <View style={styles.content}>
-        <Text style={styles.darkComingSoon}>Eğitim videoları yakında!</Text>
-      </View>
-    </SafeAreaView>
-  );
+  // Eğitim içerikleri ekranı - gösterim: yeni sayfada iki başlık (kartlar) - kullanıcı tıklayınca detay (şimdilik placeholder)
+  const EducationScreen = () => {
+    return (
+      <SafeAreaView style={styles.darkContainer}>
+        <View style={styles.darkScreenHeader}>
+          <TouchableOpacity onPress={() => setCurrentScreen('main')}>
+            <Text style={styles.darkBackButton}>← Geri</Text>
+          </TouchableOpacity>
+          <Text style={styles.darkScreenTitle}>Eğitim İçerikleri</Text>
+          <View style={styles.placeholder} />
+        </View>
+
+        <ScrollView style={styles.content} contentContainerStyle={{ padding: 20 }}>
+          <TouchableOpacity style={styles.educationCardLarge} onPress={() => Alert.alert('Kendini Yönetme', 'Bu içeriğe yakında eklenecek eğitimler gösterilecek.') }>
+            <Text style={styles.educationCardTitle}>Kendini Yönetme Stratejileri Eğitimleri</Text>
+            <Text style={styles.educationCardDesc}>Kendini yönetme, kendi kendine yönergeler ve pekiştirme stratejileri hakkında rehberler.</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.educationCardLarge} onPress={() => Alert.alert('Uygulama Eğitimi', 'Uygulama kullanımı ile ilgili rehberler yakında ekleniyor.') }>
+            <Text style={styles.educationCardTitle}>Uygulama Eğitimi</Text>
+            <Text style={styles.educationCardDesc}>RutiMind uygulamasını kullanma, beceri ekleme ve pekiştireçleri yönetme rehberi.</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </SafeAreaView>
+    );
+  };
 
   // Beceri ekleme fonksiyonu
   const addSkill = (skill, category) => {
@@ -1254,11 +1264,73 @@ const styles = StyleSheet.create({
   // Genel Ekran Dark Mode Styles
   darkScreenHeader: {
     backgroundColor: '#2c3e50',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   darkScreenTitle: {
     color: '#ffffff',
+    fontSize: 18,
+    fontWeight: '700',
   },
   darkComingSoon: {
+    color: '#bdc3c7',
+  },
+  // Education tabs
+  tabRow: {
+    flexDirection: 'row',
+    backgroundColor: '#232323',
+    paddingHorizontal: 8,
+    paddingVertical: 10,
+    justifyContent: 'space-around',
+    marginTop: 8,
+  },
+  tabButton: {
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  tabButtonActive: {
+    backgroundColor: 'rgba(66,133,244,0.95)',
+  },
+  tabText: {
+    color: '#cbd5e1',
+    fontSize: 13,
+    textAlign: 'center',
+  },
+  tabTextActive: {
+    color: '#ffffff',
+    fontWeight: '700',
+  },
+  sectionTitle: {
+    fontSize: 20,
+    color: '#ffffff',
+    fontWeight: '700',
+    marginBottom: 8,
+  },
+  sectionDesc: {
+    fontSize: 14,
+    color: '#bdc3c7',
+    lineHeight: 20,
+  },
+  educationCardLarge: {
+    backgroundColor: '#2d2d2d',
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#3d3d3d',
+  },
+  educationCardTitle: {
+    fontSize: 18,
+    color: '#ffffff',
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  educationCardDesc: {
+    fontSize: 14,
     color: '#bdc3c7',
   },
   // Dashboard Dark Mode Styles

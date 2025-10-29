@@ -73,6 +73,7 @@ const MainScreen: React.FC = () => {
 
           <TouchableOpacity 
             style={[styles.card, styles.smallCard]}
+            onPress={() => navigation.navigate('Education')}
           >
             <View style={styles.smallIconContainer}>
               <Text style={styles.cardIcon}>📚</Text>
