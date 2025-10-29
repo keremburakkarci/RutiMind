@@ -21,6 +21,9 @@ const GlobalTopActions: React.FC = () => {
   // Subscribe to navigation state so this component re-renders when the active route changes
   const currentRouteName = useNavigationState((state) => getActiveRouteName(state));
   const isMainScreen = currentRouteName === 'Main';
+  // Use 'box-none' so the topBar doesn't block underlying scroll events while
+  // still allowing its children (buttons) to receive pointer events.
+  const pointerEventsProp: 'box-none' = 'box-none';
 
   const handleGoToMain = () => {
     // Reset PIN verification when going back to main menu
@@ -68,7 +71,7 @@ const GlobalTopActions: React.FC = () => {
   if (!user?.email) return null;
 
   return (
-    <View style={[styles.topBar, { pointerEvents: 'box-none' } as any]}>
+    <View pointerEvents={pointerEventsProp} style={styles.topBar}>
       {/* Ana Menü button - center top (only show when NOT on main screen) */}
       {currentRouteName && !isMainScreen && (
         <TouchableOpacity
@@ -135,6 +138,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: '50%',
     transform: [{ translateX: -60 }],
+  // raised higher on the page so it sits above screen headers
+  top: Platform.OS === 'web' ? 36 : 28,
     backgroundColor: 'rgba(66, 133, 244, 0.95)',
     paddingVertical: 12,
     paddingHorizontal: 24,

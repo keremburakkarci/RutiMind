@@ -9,6 +9,7 @@ import type { RootStackParamList } from './types';
 import MainScreen from '../screens/MainScreen';
 import EducationScreen from '../screens/EducationScreen';
 import SelfManagementScreen from '../screens/SelfManagementScreen';
+import VideoSequenceScreen from '../screens/VideoSequenceScreen';
 import AuthNavigator from './AuthNavigator';
 import ParentStack from './ParentStack';
 import StudentNavigator from './StudentNavigator';
@@ -30,6 +31,7 @@ const RootNavigator: React.FC = () => {
         <Stack.Screen name="Main" component={MainScreen} />
   <Stack.Screen name="Education" component={EducationScreen} />
     <Stack.Screen name="SelfManagement" component={SelfManagementScreen} />
+    <Stack.Screen name="VideoSequence" component={VideoSequenceScreen} />
         <Stack.Screen name="Auth" component={AuthNavigator} />
   <Stack.Screen name="ParentDashboard" component={ParentStack} />
         <Stack.Screen name="StudentFlow" component={StudentNavigator} />
