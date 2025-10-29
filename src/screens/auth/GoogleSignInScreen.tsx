@@ -30,9 +30,13 @@ const GoogleSignInScreen: React.FC = () => {
 
     try {
       setLoading(true);
-      const result = await signInWithPopup(auth, googleProvider);
+      console.debug('[GoogleSignIn] Starting Google sign-in with popup...');
       
-      if (result.user) {
+      const result = await signInWithPopup(auth, googleProvider);
+      console.debug('[GoogleSignIn] signInWithPopup succeeded, user=', result?.user ? { uid: result.user.uid, email: result.user.email } : null);
+
+      if (result && result.user) {
+        // Update auth store with user data
         setUser({
           uid: result.user.uid,
           email: result.user.email,
@@ -40,22 +44,26 @@ const GoogleSignInScreen: React.FC = () => {
           photoURL: result.user.photoURL,
         });
 
-        // Check if PIN exists
+        console.debug('[GoogleSignIn] Checking if user has PIN...');
         const pinExists = await hasPIN();
-        
-        if (pinExists) {
-          // User has PIN, go to PIN entry
-          navigation.navigate('PINEntry');
-        } else {
-          // First time user, setup PIN
+        console.debug('[GoogleSignIn] PIN exists:', pinExists);
+
+        if (!pinExists) {
+          // First time user - navigate to PIN setup
+          console.debug('[GoogleSignIn] No PIN found, navigating to PINSetup');
           navigation.navigate('PINSetup');
+        } else {
+          // Returning user - navigate to PIN entry
+          console.debug('[GoogleSignIn] PIN found, navigating to PINEntry');
+          navigation.navigate('PINEntry');
         }
       }
-    } catch (error) {
-      console.error('Google Sign-In Error:', error);
+    } catch (error: any) {
+      console.error('[GoogleSignIn] signInWithPopup error:', error);
       Alert.alert(
-        t('common.error'),
-        t('errors.authentication')
+        t('auth.googleSignInErrorTitle', 'Giriş Hatası'),
+        t('auth.googleSignInErrorMessage', 'Google ile giriş yapılırken bir hata oluştu. Lütfen tekrar deneyin.') + '\n\n' + (error?.message || ''),
+        [{ text: t('common.ok', 'Tamam'), style: 'cancel' }]
       );
     } finally {
       setLoading(false);

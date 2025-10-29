@@ -2,6 +2,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 import * as Crypto from 'expo-crypto';
+import { Platform } from 'react-native';
 
 const PIN_KEY = 'user_pin_hashed';
 const SALT_KEY = 'user_pin_salt';
@@ -15,14 +16,25 @@ const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 // expo-secure-store provides getItemAsync/setItemAsync/deleteItemAsync on native.
 // On web or in some mismatched versions these may be absent; fall back to localStorage.
 async function secureGetItem(key: string): Promise<string | null> {
+  if (Platform.OS === 'web') {
+    return Promise.resolve(localStorage.getItem(key));
+  }
   try {
     // Support multiple expo-secure-store API names (different versions/platform builds)
     const ss: any = SecureStore || {};
-    if (ss && typeof ss.getItemAsync === 'function') {
-      return await ss.getItemAsync(key);
+    if (ss && ss.getItemAsync && typeof ss.getItemAsync === 'function') {
+      try {
+        return await ss.getItemAsync(key);
+      } catch (e) {
+        console.warn('SecureStore.getItemAsync failed', e);
+      }
     }
-    if (ss && typeof ss.getValueWithKeyAsync === 'function') {
-      return await ss.getValueWithKeyAsync(key);
+    if (ss && ss.getValueWithKeyAsync && typeof ss.getValueWithKeyAsync === 'function') {
+      try {
+        return await ss.getValueWithKeyAsync(key);
+      } catch (e) {
+        console.warn('SecureStore.getValueWithKeyAsync failed', e);
+      }
     }
     if (typeof globalThis !== 'undefined' && (globalThis as any).localStorage) {
       return Promise.resolve((globalThis as any).localStorage.getItem(key));
@@ -30,18 +42,34 @@ async function secureGetItem(key: string): Promise<string | null> {
     return Promise.resolve(null);
   } catch (e) {
     console.warn('secureGetItem fallback hit for', key, e);
-    return null;
+    if (typeof globalThis !== 'undefined' && (globalThis as any).localStorage) {
+      return Promise.resolve((globalThis as any).localStorage.getItem(key));
+    }
+    return Promise.resolve(null);
   }
 }
 
+
 async function secureSetItem(key: string, value: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    localStorage.setItem(key, value);
+    return;
+  }
   try {
     const ss: any = SecureStore || {};
-    if (ss && typeof ss.setItemAsync === 'function') {
-      return await ss.setItemAsync(key, value);
+    if (ss && ss.setItemAsync && typeof ss.setItemAsync === 'function') {
+      try {
+        return await ss.setItemAsync(key, value);
+      } catch (e) {
+        console.warn('SecureStore.setItemAsync failed', e);
+      }
     }
-    if (ss && typeof ss.setValueWithKeyAsync === 'function') {
-      return await ss.setValueWithKeyAsync(key, value);
+    if (ss && ss.setValueWithKeyAsync && typeof ss.setValueWithKeyAsync === 'function') {
+      try {
+        return await ss.setValueWithKeyAsync(key, value);
+      } catch (e) {
+        console.warn('SecureStore.setValueWithKeyAsync failed', e);
+      }
     }
     if (typeof globalThis !== 'undefined' && (globalThis as any).localStorage) {
       (globalThis as any).localStorage.setItem(key, value);
@@ -50,18 +78,33 @@ async function secureSetItem(key: string, value: string): Promise<void> {
     return Promise.resolve();
   } catch (e) {
     console.warn('secureSetItem fallback hit for', key, e);
-    return Promise.resolve();
+    // Try localStorage as last resort
+    if (typeof globalThis !== 'undefined' && (globalThis as any).localStorage) {
+      (globalThis as any).localStorage.setItem(key, value);
+    }
   }
 }
 
 async function secureDeleteItem(key: string): Promise<void> {
+  if (Platform.OS === 'web') {
+    localStorage.removeItem(key);
+    return;
+  }
   try {
     const ss: any = SecureStore || {};
-    if (ss && typeof ss.deleteItemAsync === 'function') {
-      return await ss.deleteItemAsync(key);
+    if (ss && ss.deleteItemAsync && typeof ss.deleteItemAsync === 'function') {
+      try {
+        return await ss.deleteItemAsync(key);
+      } catch (e) {
+        console.warn('SecureStore.deleteItemAsync failed', e);
+      }
     }
-    if (ss && typeof ss.deleteValueWithKeyAsync === 'function') {
-      return await ss.deleteValueWithKeyAsync(key);
+    if (ss && ss.deleteValueWithKeyAsync && typeof ss.deleteValueWithKeyAsync === 'function') {
+      try {
+        return await ss.deleteValueWithKeyAsync(key);
+      } catch (e) {
+        console.warn('SecureStore.deleteValueWithKeyAsync failed', e);
+      }
     }
     if (typeof globalThis !== 'undefined' && (globalThis as any).localStorage) {
       (globalThis as any).localStorage.removeItem(key);

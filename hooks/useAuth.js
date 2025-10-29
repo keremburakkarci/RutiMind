@@ -2,8 +2,6 @@ import { useState, useEffect } from 'react';
 import { 
   GoogleAuthProvider, 
   signInWithPopup, 
-  setPersistence, 
-  browserLocalPersistence,
   onAuthStateChanged,
   signOut 
 } from 'firebase/auth';
@@ -19,17 +17,33 @@ export const useAuth = () => {
 
     const initAuth = async () => {
       try {
-        // Önce persistence'ı ayarla
-        await setPersistence(auth, browserLocalPersistence);
-        
-        // Sonra auth state'i dinle
+        // Auth state'i dinle
         unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-          console.log('Auth state changed:', currentUser?.email);
+          // Daha detaylı log: tam user objesini görebilmek için JSON.stringify
+          try {
+            console.debug('[useAuth] onAuthStateChanged fired, user=', currentUser ? { uid: currentUser.uid, email: currentUser.email } : null);
+          } catch (e) {
+            console.debug('[useAuth] onAuthStateChanged fired (could not stringify user)');
+          }
+
           setUser(currentUser);
+          // Also update the auth store
+          if (currentUser) {
+            useAuthStore.getState().setUser({
+              uid: currentUser.uid,
+              email: currentUser.email,
+              displayName: currentUser.displayName,
+              photoURL: currentUser.photoURL,
+            });
+            useAuthStore.getState().setLoading(false);
+          } else {
+            useAuthStore.getState().setUser(null);
+            useAuthStore.getState().setLoading(false);
+          }
           setLoading(false);
         });
       } catch (error) {
-        console.error('Auth initialization error:', error);
+        console.error('[useAuth] Auth initialization error:', error);
         setLoading(false);
       }
     };
@@ -61,16 +75,20 @@ export const useAuth = () => {
   const logout = async () => {
     try {
       setLoading(true);
+      console.debug('[useAuth] Starting logout...');
+      
       await signOut(auth);
-      console.log('Logout successful');
-      // Also clear local auth store
+      console.debug('[useAuth] Firebase signOut successful');
+      
+      // Clear local auth store (user + PIN verification flag)
       try {
         useAuthStore.getState().signOut();
+        console.debug('[useAuth] Auth store cleared (user + PIN verification reset)');
       } catch (e) {
-        // ignore
+        console.warn('[useAuth] Could not clear auth store:', e);
       }
     } catch (error) {
-      console.error('Logout Error:', error);
+      console.error('[useAuth] Logout Error:', error);
       throw error;
     } finally {
       setLoading(false);

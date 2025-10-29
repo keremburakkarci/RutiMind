@@ -1,6 +1,6 @@
 // Firebase Configuration
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider } from 'firebase/auth';
+import { getAuth, GoogleAuthProvider, setPersistence, browserLocalPersistence } from 'firebase/auth';
 
 // Firebase config - RutiMind projesi
 const firebaseConfig = {
@@ -10,8 +10,7 @@ const firebaseConfig = {
   storageBucket: "rutimind-f9b19.firebasestorage.app",
   messagingSenderId: "675395240473",
   appId: "1:675395240473:web:f8086c67d9815f8eb66088",
-  // Persistence için önemli
-  persistence: true
+  // NOTE: persistence is configured below on the auth instance
 };
 
 // Initialize Firebase

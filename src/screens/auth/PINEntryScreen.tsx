@@ -73,9 +73,12 @@ const PINEntryScreen: React.FC = () => {
 
     try {
       setLoading(true);
+      console.debug('[PINEntryScreen] Verifying PIN for user:', auth.currentUser?.email);
       const isValid = await verifyPIN(pin);
       
       if (isValid) {
+        console.debug('[PINEntryScreen] PIN verified successfully');
+        
         // Ensure auth store has current firebase user
         try {
           const current = auth.currentUser;
@@ -87,14 +90,15 @@ const PINEntryScreen: React.FC = () => {
               displayName: current.displayName,
               photoURL: current.photoURL,
             });
+            console.debug('[PINEntryScreen] Auth store updated with user:', current.email);
           }
         } catch (e) {
-          // ignore
+          console.warn('[PINEntryScreen] Could not update auth store:', e);
         }
 
         setPINVerified(true);
+        console.debug('[PINEntryScreen] PIN verified flag set to true, navigating to ParentDashboard');
 
-        console.debug('[PINEntryScreen] PIN verified, currentUser=', auth.currentUser ? auth.currentUser.uid : null);
         navigation.reset({
           index: 0,
           routes: [{ name: 'ParentDashboard' as never }],

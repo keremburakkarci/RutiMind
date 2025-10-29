@@ -13,6 +13,7 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useTranslation } from 'react-i18next';
 import DraggableFlatList, {
   RenderItemParams,
@@ -21,25 +22,9 @@ import DraggableFlatList, {
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
-import { useForm, Controller } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
 import { skillCategories, MAX_SELECTED_SKILLS } from '../../../data/skillsData.js';
 import { useSkillsStore } from '../../store/skillsStore';
 import type { SelectedSkill } from '../../types';
-
-// Validation schema
-const skillValidationSchema = z.object({
-  waitDuration: z.number().min(1).max(60),
-  skills: z.array(z.object({
-    skillId: z.string(),
-    order: z.number(),
-    duration: z.number().min(1).max(120),
-    imageUri: z.string().min(1),
-  })).max(MAX_SELECTED_SKILLS),
-});
-
-type SkillFormData = z.infer<typeof skillValidationSchema>;
 
 const SkillsScreen: React.FC = () => {
   const { t } = useTranslation();
@@ -47,27 +32,16 @@ const SkillsScreen: React.FC = () => {
   // Zustand store
   const { 
     selectedSkills, 
-    waitDuration,
     addSkill, 
-    removeSkill, 
+    removeSkill,
     reorderSkills,
     updateSkill,
-    setWaitDuration 
   } = useSkillsStore();
 
   // Local state
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadingSkillId, setUploadingSkillId] = useState<string | null>(null);
-
-  // Form validation
-  const { control, handleSubmit, formState: { errors } } = useForm<SkillFormData>({
-    resolver: zodResolver(skillValidationSchema),
-    values: {
-      waitDuration,
-      skills: selectedSkills,
-    }
-  });
 
   // Filter skills by category and search
   const filteredCategories = useMemo(() => {
@@ -130,9 +104,10 @@ const SkillsScreen: React.FC = () => {
       return;
     }
 
-    const skillId = `${categoryId}-${Date.now()}`;
+    const skillId = `${categoryId}-${skillName}-${Date.now()}`;
     const newSkill: SelectedSkill = {
       skillId,
+      skillName,
       order: selectedSkills.length + 1,
       duration: 5, // Default 5 minutes
       imageUri: '',
@@ -149,16 +124,16 @@ const SkillsScreen: React.FC = () => {
   };
 
   // Save validation
-  const onSave = (data: SkillFormData) => {
+  const onSave = () => {
     // Check all skills have images
-    const skillsWithoutImage = data.skills.filter(s => !s.imageUri);
+    const skillsWithoutImage = selectedSkills.filter((s: SelectedSkill) => !s.imageUri);
     if (skillsWithoutImage.length > 0) {
       Alert.alert(t('errors.validation'), t('skills.errors.missingImages'));
       return;
     }
 
     // Check total duration
-    const total = data.skills.reduce((sum, s) => sum + s.duration, 0);
+    const total = selectedSkills.reduce((sum: number, s: SelectedSkill) => sum + s.duration, 0);
     if (total > 120) {
       Alert.alert(t('errors.validation'), t('skills.errors.totalDurationExceeded'));
       return;
@@ -176,52 +151,39 @@ const SkillsScreen: React.FC = () => {
       </View>
       <View style={styles.skillInfo}>
         <Text style={styles.skillName}>{t('skills.waitTime')}</Text>
-        <Text style={styles.skillCategory}>{t('skills.fixedRow')}</Text>
       </View>
-      <View style={styles.durationInputContainer}>
-        <Controller
-          control={control}
-          name="waitDuration"
-          render={({ field: { onChange, value } }) => (
-            <TextInput
-              style={[styles.durationInput, errors.waitDuration && styles.inputError]}
-              value={String(value)}
-              onChangeText={(text) => {
-                const num = parseInt(text) || 0;
-                onChange(num);
-                setWaitDuration(num);
-              }}
-              keyboardType="numeric"
-              placeholder="5"
-              placeholderTextColor="#666"
-            />
-          )}
-        />
+      <View style={styles.totalDurationContainer}>
+        <Text style={styles.totalDurationLabel}>Toplam:</Text>
+        <Text style={styles.totalDurationValue}>{totalDuration}</Text>
         <Text style={styles.durationUnit}>{t('skills.minutes')}</Text>
       </View>
     </View>
   );
 
   // Render draggable skill item
-  const renderSkillItem = ({ item, drag, isActive }: RenderItemParams<SelectedSkill>) => {
+  const renderSkillItem = ({ item, drag, isActive, getIndex }: RenderItemParams<SelectedSkill>) => {
+    const index = getIndex();
     return (
       <ScaleDecorator>
         <TouchableOpacity
           onLongPress={drag}
-          disabled={isActive}
+          delayLongPress={100}
+          activeOpacity={0.8}
           style={[
             styles.selectedSkillItem,
             isActive && styles.selectedSkillItemActive,
           ]}
         >
+          {/* Order Badge */}
           <View style={styles.skillOrderBadge}>
-            <Text style={styles.skillOrderText}>{item.order}</Text>
+            <Text style={styles.skillOrderText}>{typeof index === 'number' ? index + 1 : item.order}</Text>
           </View>
           
           {/* Image thumbnail */}
           <TouchableOpacity 
             style={styles.skillImageContainer}
             onPress={() => pickImage(item.skillId)}
+            activeOpacity={0.7}
           >
             {uploadingSkillId === item.skillId ? (
               <ActivityIndicator color="#4285F4" />
@@ -236,29 +198,22 @@ const SkillsScreen: React.FC = () => {
 
           <View style={styles.skillInfo}>
             <Text style={styles.skillName} numberOfLines={2}>
-              Skill {item.order}
+              {item.skillName || `Skill ${item.order}`}
             </Text>
           </View>
 
           {/* Duration input */}
           <View style={styles.durationInputContainer}>
-            <Controller
-              control={control}
-              name={`skills.${item.order - 1}.duration` as any}
-              render={({ field: { onChange, value } }) => (
-                <TextInput
-                  style={[styles.durationInput, !item.imageUri && styles.inputError]}
-                  value={String(value)}
-                  onChangeText={(text) => {
-                    const num = parseInt(text) || 0;
-                    onChange(num);
-                    updateSkill(item.skillId, { duration: num });
-                  }}
-                  keyboardType="numeric"
-                  placeholder="5"
-                  placeholderTextColor="#666"
-                />
-              )}
+            <TextInput
+              style={[styles.durationInput, !item.imageUri && styles.inputError]}
+              value={String(item.duration)}
+              onChangeText={(text) => {
+                const num = parseInt(text) || 0;
+                updateSkill(item.skillId, { duration: num });
+              }}
+              keyboardType="numeric"
+              placeholder="5"
+              placeholderTextColor="#666"
             />
             <Text style={styles.durationUnit}>{t('skills.minutes')}</Text>
           </View>
@@ -267,6 +222,7 @@ const SkillsScreen: React.FC = () => {
           <TouchableOpacity
             style={styles.removeButton}
             onPress={() => handleRemoveSkill(item.skillId)}
+            activeOpacity={0.7}
           >
             <Text style={styles.removeButtonText}>✕</Text>
           </TouchableOpacity>
@@ -276,14 +232,15 @@ const SkillsScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('skills.title')}</Text>
-        <Text style={styles.subtitle}>
-          {selectedSkills.length}/{MAX_SELECTED_SKILLS} {t('skills.selected')} • {totalDuration} {t('skills.minutes')}
-        </Text>
-      </View>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaView style={styles.container}>
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>{t('skills.title')}</Text>
+          <Text style={styles.subtitle}>
+            {selectedSkills.length}/{MAX_SELECTED_SKILLS} {t('skills.selected')} • {totalDuration} {t('skills.minutes')}
+          </Text>
+        </View>
 
       {/* Split View */}
       <View style={styles.splitView}>
@@ -343,23 +300,28 @@ const SkillsScreen: React.FC = () => {
             {renderWaitTimeRow()}
 
             {/* Draggable Skills */}
-            <DraggableFlatList
-              data={selectedSkills}
-              onDragEnd={({ from, to }) => {
-                reorderSkills(from, to);
-                Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-              }}
-              keyExtractor={(item) => item.skillId}
-              renderItem={renderSkillItem}
-              containerStyle={styles.draggableList}
-              ListEmptyComponent={
-                <View style={styles.emptyState}>
-                  <Text style={styles.emptyStateText}>
-                    {t('skills.noSkillsSelected')}
-                  </Text>
-                </View>
-              }
-            />
+            {selectedSkills.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyStateText}>
+                  {t('skills.noSkillsSelected')}
+                </Text>
+              </View>
+            ) : (
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <DraggableFlatList
+                  data={selectedSkills}
+                  onDragEnd={({ from, to }) => {
+                    reorderSkills(from, to);
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  }}
+                  keyExtractor={(item) => item.skillId}
+                  renderItem={renderSkillItem}
+                  contentContainerStyle={styles.draggableListContent}
+                  activationDistance={10}
+                  dragItemOverflow={true}
+                />
+              </GestureHandlerRootView>
+            )}
           </View>
 
           {/* Save Button */}
@@ -368,7 +330,7 @@ const SkillsScreen: React.FC = () => {
               styles.saveButton,
               selectedSkills.length === 0 && styles.saveButtonDisabled
             ]}
-            onPress={handleSubmit(onSave)}
+            onPress={onSave}
             disabled={selectedSkills.length === 0}
           >
             <Text style={styles.saveButtonText}>{t('skills.save')}</Text>
@@ -376,6 +338,7 @@ const SkillsScreen: React.FC = () => {
         </View>
       </View>
     </SafeAreaView>
+    </GestureHandlerRootView>
   );
 };
 
@@ -578,6 +541,22 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     marginLeft: 4,
   },
+  totalDurationContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 'auto',
+  },
+  totalDurationLabel: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginRight: 4,
+  },
+  totalDurationValue: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#4285F4',
+    marginRight: 4,
+  },
   removeButton: {
     width: 28,
     height: 28,
@@ -593,6 +572,9 @@ const styles = StyleSheet.create({
   },
   draggableList: {
     flex: 1,
+  },
+  draggableListContent: {
+    paddingBottom: 16,
   },
   emptyState: {
     padding: 40,

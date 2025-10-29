@@ -31,6 +31,7 @@ export interface Skill {
 
 export interface SelectedSkill {
   skillId: string;
+  skillName: string;
   order: number;
   duration: number; // in minutes
   imageUri: string;

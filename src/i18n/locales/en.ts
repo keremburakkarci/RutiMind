@@ -56,6 +56,7 @@ export default {
     subtitle: 'Edit and manage skills',
     categories: 'Skill Categories',
     selected: 'Selected Skills',
+    selectedSkills: 'Selected Skills',
     addSkill: 'Add Skill',
     removeSkill: 'Remove Skill',
     maxSkillsReached: 'You can select a maximum of {{max}} skills',
@@ -68,8 +69,17 @@ export default {
     noImageSelected: 'Please upload a photo for each skill',
     noDurationSet: 'Please set duration for each skill',
     saveSuccess: 'Skills saved successfully',
+    saved: 'Skills saved!',
     waitTime: 'Wait Time',
+    fixedRow: 'Fixed Row',
     emptyState: 'Select skills from the left panel',
+    noSkillsSelected: 'No skills selected yet',
+    search: 'Search skills...',
+    save: 'Save',
+    errors: {
+      missingImages: 'Please upload photos for all skills',
+      totalDurationExceeded: 'Total duration cannot exceed 2 hours',
+    },
   },
   
   // Reinforcers

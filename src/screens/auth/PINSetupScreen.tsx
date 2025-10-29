@@ -69,7 +69,10 @@ const PINSetupScreen: React.FC = () => {
 
       try {
         setLoading(true);
+        console.debug('[PINSetupScreen] Setting up PIN for user:', auth.currentUser?.email);
         await setupPIN(pin);
+        console.debug('[PINSetupScreen] PIN saved successfully');
+        
         // Ensure auth store has current firebase user (may be set elsewhere but ensure consistency)
         try {
           const current = auth.currentUser;
@@ -81,26 +84,23 @@ const PINSetupScreen: React.FC = () => {
               displayName: current.displayName,
               photoURL: current.photoURL,
             });
+            console.debug('[PINSetupScreen] Auth store updated with user:', current.email);
           }
         } catch (e) {
-          // ignore
+          console.warn('[PINSetupScreen] Could not update auth store:', e);
         }
 
         setPINVerified(true);
+        console.debug('[PINSetupScreen] PIN verified flag set to true');
 
-        // Log then navigate to parent dashboard
-        try {
-          console.debug('[PINSetupScreen] PIN setup complete, currentUser=', auth.currentUser ? auth.currentUser.uid : null);
-        } catch (e) {
-          console.debug('[PINSetupScreen] PIN setup complete (no auth.currentUser available)');
-        }
-
+        // Navigate to parent dashboard
+        console.debug('[PINSetupScreen] Navigating to ParentDashboard...');
         navigation.reset({
           index: 0,
           routes: [{ name: 'ParentDashboard' as never }],
         });
       } catch (error) {
-        console.error('PIN Setup Error:', error);
+        console.error('[PINSetupScreen] PIN Setup Error:', error);
         Alert.alert(t('common.error'), t('errors.generic'));
       } finally {
         setLoading(false);

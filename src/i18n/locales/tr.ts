@@ -56,6 +56,7 @@ export default {
     subtitle: 'Becerileri düzenle ve yönet',
     categories: 'Beceri Kategorileri',
     selected: 'Seçili Beceriler',
+    selectedSkills: 'Seçili Beceriler',
     addSkill: 'Beceri Ekle',
     removeSkill: 'Beceriyi Kaldır',
     maxSkillsReached: 'Maksimum {{max}} beceri seçebilirsiniz',
@@ -68,8 +69,17 @@ export default {
     noImageSelected: 'Lütfen her beceri için fotoğraf yükleyin',
     noDurationSet: 'Lütfen her beceri için süre belirleyin',
     saveSuccess: 'Beceriler başarıyla kaydedildi',
+    saved: 'Beceriler kaydedildi!',
     waitTime: 'Bekleme Süresi',
+    fixedRow: 'Sabit Satır',
     emptyState: 'Sol taraftan becerileri seçin',
+    noSkillsSelected: 'Henüz beceri seçilmedi',
+    search: 'Beceri ara...',
+    save: 'Kaydet',
+    errors: {
+      missingImages: 'Lütfen tüm beceriler için fotoğraf yükleyin',
+      totalDurationExceeded: 'Toplam süre 2 saati geçemez',
+    },
   },
   
   // Reinforcers

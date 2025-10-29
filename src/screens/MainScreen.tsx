@@ -13,13 +13,19 @@ import { useNavigation } from '@react-navigation/native';
 import type { MainScreenNavigationProp } from '../navigation/types';
 import { useTranslation } from 'react-i18next';
 import { useSkillsStore } from '../store/skillsStore';
+import { useAuthStore } from '../store/authStore';
 
 const MainScreen: React.FC = () => {
   const navigation = useNavigation<MainScreenNavigationProp>();
   const { t } = useTranslation();
   const { selectedSkills } = useSkillsStore();
+  const { setPINVerified } = useAuthStore();
 
   const handleParentPress = () => {
+    // Reset PIN verification flag when navigating to Auth from Main
+    // This ensures user must enter PIN every time they access Parent Panel
+    console.debug('[MainScreen] Resetting PIN verification flag, navigating to Auth');
+    setPINVerified(false);
     navigation.navigate('Auth');
   };
 

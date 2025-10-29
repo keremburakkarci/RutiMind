@@ -8,6 +8,7 @@ import { auth } from './firebaseConfig';
 import RootNavigator from './src/navigation/RootNavigator';
 import './src/i18n';
 import { initDatabase } from './src/services/database';
+import { useAuth } from './hooks/useAuth';
 
 // Create a client for TanStack Query
 const queryClient = new QueryClient({
@@ -22,6 +23,7 @@ const queryClient = new QueryClient({
 
 const App: React.FC = () => {
   const [persistenceReady, setPersistenceReady] = useState(false);
+  const { user, loading: authLoading } = useAuth();
 
   useEffect(() => {
     // Ensure Firebase uses persistent local persistence on web so refresh doesn't require re-login
