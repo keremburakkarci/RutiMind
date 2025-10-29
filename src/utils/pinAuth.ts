@@ -12,10 +12,10 @@ const LOCKOUT_UNTIL_KEY = 'pin_lockout_until';
 const MAX_FAILED_ATTEMPTS = 5;
 const LOCKOUT_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
-// --- Compatibility wrappers ---
+// --- Compatibility wrappers (exported for Firestore sync) ---
 // expo-secure-store provides getItemAsync/setItemAsync/deleteItemAsync on native.
 // On web or in some mismatched versions these may be absent; fall back to localStorage.
-async function secureGetItem(key: string): Promise<string | null> {
+export async function secureGetItem(key: string): Promise<string | null> {
   if (Platform.OS === 'web') {
     return Promise.resolve(localStorage.getItem(key));
   }
@@ -50,7 +50,7 @@ async function secureGetItem(key: string): Promise<string | null> {
 }
 
 
-async function secureSetItem(key: string, value: string): Promise<void> {
+export async function secureSetItem(key: string, value: string): Promise<void> {
   if (Platform.OS === 'web') {
     localStorage.setItem(key, value);
     return;
@@ -149,13 +149,14 @@ async function hashPIN(pin: string, salt: string): Promise<string> {
 }
 
 /**
- * Set up a new PIN for the user
+ * Set up a new PIN for the user (MUST be 6 digits)
+ * Returns hash and salt for Firestore sync
  */
-export async function setupPIN(pin: string): Promise<void> {
+export async function setupPIN(pin: string): Promise<{ hash: string; salt: string }> {
   try {
-    // Validate PIN
-    if (pin.length < 4 || pin.length > 6) {
-      throw new Error('PIN must be 4-6 digits');
+    // Validate PIN - MUST be exactly 6 digits
+    if (pin.length !== 6) {
+      throw new Error('PIN must be exactly 6 digits');
     }
     
     if (!/^\d+$/.test(pin)) {
@@ -168,7 +169,7 @@ export async function setupPIN(pin: string): Promise<void> {
     // Hash PIN
     const hashedPIN = await hashPIN(pin, salt);
     
-    // Store hashed PIN and salt
+    // Store hashed PIN and salt locally
   await secureSetItem(PIN_KEY, hashedPIN);
   await secureSetItem(SALT_KEY, salt);
     
@@ -176,9 +177,12 @@ export async function setupPIN(pin: string): Promise<void> {
   await secureDeleteItem(FAILED_ATTEMPTS_KEY);
   await secureDeleteItem(LOCKOUT_UNTIL_KEY);
     
-    console.log('PIN setup successful');
+    console.log('[pinAuth] PIN setup successful (local storage)');
+    
+    // Return hash and salt so caller can sync to Firestore
+    return { hash: hashedPIN, salt };
   } catch (error) {
-    console.error('Error setting up PIN:', error);
+    console.error('[pinAuth] Error setting up PIN:', error);
     throw error;
   }
 }

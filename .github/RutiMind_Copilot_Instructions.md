@@ -91,7 +91,30 @@ Copilot must always follow the technical, visual, and behavioral rules described
 
 ## 📲 PROGRAM FLOW
 
-### 🔹 Entry Screen
+### �️ Network resilience & PIN UX (recent decisions)
+
+- Firestore network strategy:
+  - Initialize Firestore with HTTP long-polling to avoid WebChannel streaming 400 errors (use experimentalForceLongPolling / useFetchStreams flags where applicable).
+  - Metro/packager cache must be cleared after changing Firestore transport settings so the running bundle picks up the configuration.
+  - For all Firestore operations that affect UX (PIN sync, PIN load, remote delete), add a short timeout (3 seconds) and gracefully degrade to local-only behavior if the network is slow or unavailable.
+
+- PIN creation & confirmation flow (UX + safety):
+  - PIN setup requires two steps: Enter PIN (6 digits) → Confirm PIN (6 digits). The confirm screen must show an instruction like: "Please re-enter your PIN to confirm" (not an error message).
+  - If the two PINs do not match, show a clear inline error (e.g. "❌ The PINs do not match. Please try again.") and clear the confirmation input so the user can retry.
+  - Provide explicit success feedback when a PIN is created (e.g. an alert "✅ PIN Created"), and only then navigate forward (do not navigate to the main app before PIN creation succeeds).
+  - Limit confirmation retries to a small number (3 attempts). After the final failed confirmation attempt:
+    - Cancel PIN setup.
+    - Sign the user out (clear local PIN and Firebase session if signed in).
+    - Return the user to the Google sign-in / initial auth entry so they can restart the flow.
+
+- Forgot PIN / Reset flow:
+  - When a user requests PIN reset, clear the local PIN immediately and attempt to delete the remote PIN with the same short timeout (3s). If remote deletion times out, still proceed: sign the user out and route to GoogleSignIn so they can re-create a PIN after re-authentication.
+
+- UX and reliability constraints:
+  - Never block the UI waiting for Firestore for long periods — always use short timeouts and provide feedback. Local PIN state must be authoritative when network operations fail.
+  - Use inline error messages in addition to platform alerts so web and native users receive consistent feedback.
+
+### �🔹 Entry Screen
 - Two options:
   1. **Parent Login**
   2. **Student Login**
@@ -105,6 +128,22 @@ Copilot must always follow the technical, visual, and behavioral rules described
 - After first login → prompt **PIN creation**.
 - On next launches → **PIN entry only**, skip Google (until sign-out).
 - On **sign-out** → clear Firebase session and PIN verification.
+
+  ##### Recent PIN & Network decisions (apply to Authentication)
+
+  - PIN creation and confirmation:
+    - Require a two-step PIN setup: Enter PIN (6 digits) → Confirm PIN (6 digits). The confirmation screen must display an instruction such as: "Please re-enter your PIN to confirm" rather than an error.
+    - If the confirmation PIN does not match the first PIN, show a clear inline error (e.g. "❌ The PINs do not match. Please try again."), clear the confirmation input, and refocus the confirmation field so the user can retry.
+    - Limit confirmation retries to 3 attempts. After the final failed confirmation attempt: cancel PIN setup, sign the user out (clear local PIN and Firebase session) and return the user to the Google sign-in / initial auth entry.
+    - Only navigate into the main app after explicit success feedback (e.g. an alert "✅ PIN Created") — do not advance before the PIN is persisted locally.
+
+  - Forgot PIN / Reset flow (auth implications):
+    - When a user requests a PIN reset, clear the local PIN immediately and attempt to delete any remote PIN record with a short timeout (3s). If remote deletion times out, still proceed: sign the user out and route to GoogleSignIn so they can re-create a PIN after re-authentication.
+
+  - Network resilience for PIN sync:
+    - Use Firestore HTTP long-polling (experimentalForceLongPolling / useFetchStreams flags) to avoid WebChannel streaming 400 errors in web environments.
+    - When changing Firestore transport settings, clear Metro/packager cache so the running bundle picks up the config.
+    - For Firestore operations that affect UX (PIN sync, PIN load, remote delete), enforce a short timeout (3 seconds) and gracefully fall back to local-only behavior if network is slow or unavailable. Never block the UI waiting for remote operations.
 
 #### Step 2: Parent Tabs
 After login, parent sees **three main tabs**:  

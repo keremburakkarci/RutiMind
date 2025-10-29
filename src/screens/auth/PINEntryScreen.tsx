@@ -15,9 +15,11 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import type { PINEntryScreenNavigationProp } from '../../navigation/types';
 import { useTranslation } from 'react-i18next';
-import { verifyPIN, checkLockout, getLockoutTimeRemaining, getFailedAttempts } from '../../utils/pinAuth';
+import { verifyPIN, checkLockout, getLockoutTimeRemaining, getFailedAttempts, clearPIN } from '../../utils/pinAuth';
+import { deleteRemotePIN } from '../../utils/firestorePinService';
 import { useAuthStore } from '../../store/authStore';
 import { auth } from '../../../firebaseConfig';
+import { signOut } from 'firebase/auth';
 
 const PINEntryScreen: React.FC = () => {
   const navigation = useNavigation<PINEntryScreenNavigationProp>();
@@ -137,6 +139,80 @@ const PINEntryScreen: React.FC = () => {
     navigation.goBack();
   };
 
+  const handleForgotPIN = () => {
+    console.debug('[PINEntryScreen] Forgot PIN pressed');
+
+    const proceed = async () => {
+      try {
+        setLoading(true);
+        const currentUser = auth.currentUser;
+
+        if (currentUser) {
+          // Clear local PIN immediately
+          await clearPIN();
+          console.debug('[PINEntryScreen] Local PIN cleared');
+
+          // Try to delete remote PIN with timeout (don't block the flow if Firestore is offline)
+          try {
+            const timeoutPromise = new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), 3000)
+            );
+            await Promise.race([
+              deleteRemotePIN(currentUser.uid),
+              timeoutPromise
+            ]);
+            console.debug('[PINEntryScreen] Remote PIN cleared from Firestore');
+          } catch (firestoreError: any) {
+            console.warn('[PINEntryScreen] Could not clear remote PIN (timeout or offline):', firestoreError?.message);
+            // Continue anyway - local PIN is cleared and user will re-login
+          }
+
+          // Sign out and navigate to Google Sign In
+          await signOut(auth);
+          console.debug('[PINEntryScreen] User signed out');
+
+          // Navigate to Google Sign In (will route to PIN setup after re-login)
+          navigation.reset({
+            index: 0,
+            routes: [{ name: 'GoogleSignIn' as never }],
+          });
+        }
+      } catch (error) {
+        console.error('[PINEntryScreen] Error resetting PIN:', error);
+        if (Platform.OS === 'web') {
+          // Fallback to simple alert on web
+          (globalThis as any).alert('PIN sıfırlama sırasında bir hata oluştu');
+        } else {
+          Alert.alert(t('common.error'), 'PIN sıfırlama sırasında bir hata oluştu');
+        }
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    // On web Alert.alert doesn't support custom async handlers reliably in some environments.
+    if (Platform.OS === 'web') {
+      const ok = (globalThis as any).confirm('PIN\'inizi sıfırlamak için Google hesabınızla tekrar giriş yapmanız gerekiyor. Devam etmek istiyor musunuz?');
+      if (ok) proceed();
+      return;
+    }
+
+    Alert.alert(
+      'PIN\'i Unuttunuz mu?',
+      'PIN\'inizi sıfırlamak için Google hesabınızla tekrar giriş yapmanız gerekiyor. Devam etmek istiyor musunuz?',
+      [
+        {
+          text: 'İptal',
+          style: 'cancel',
+        },
+        {
+          text: 'Devam Et',
+          onPress: proceed,
+        },
+      ]
+    );
+  };
+
   const canVerify = pin.length >= 4 && !isLockedOut;
 
   return (
@@ -168,7 +244,10 @@ const PINEntryScreen: React.FC = () => {
         {failedAttempts > 0 && !isLockedOut && (
           <View style={styles.warningBox}>
             <Text style={styles.warningText}>
-              ⚠️ {5 - failedAttempts} deneme hakkınız kaldı
+              Yanlış bir PIN kodu girdiniz. Lütfen tekrar deneyiniz.
+            </Text>
+            <Text style={styles.attemptsText}>
+              ⚠️ {5 - failedAttempts} deneme hakkınız kaldı! ⚠️
             </Text>
           </View>
         )}
@@ -210,9 +289,15 @@ const PINEntryScreen: React.FC = () => {
           </Text>
         </TouchableOpacity>
 
-        <Text style={styles.hint}>
-          PIN kodunuzu girin (4-6 haneli)
-        </Text>
+        <TouchableOpacity 
+          style={styles.forgotButton}
+          onPress={handleForgotPIN}
+          disabled={loading}
+        >
+          <Text style={styles.forgotButtonText}>
+            PIN'inizi mi unuttunuz?
+          </Text>
+        </TouchableOpacity>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -284,6 +369,14 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '600',
   },
+  attemptsText: {
+    // Match warningText so all lines use the same font/weight/color
+    fontSize: 14,
+    color: '#FBBC04',
+    textAlign: 'center',
+    marginTop: 8,
+    fontWeight: '600',
+  },
   pinContainer: {
     marginBottom: 32,
   },
@@ -329,6 +422,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  forgotButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  forgotButtonText: {
+    fontSize: 14,
+    color: '#64b5f6',
+    textDecorationLine: 'underline',
   },
   hint: {
     fontSize: 14,

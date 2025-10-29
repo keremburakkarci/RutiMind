@@ -12,6 +12,8 @@ import { ActivityIndicator, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '../store/authStore';
 import { hasPIN } from '../utils/pinAuth';
+import { hasRemotePIN, loadPINFromFirestore } from '../utils/firestorePinService';
+import { secureSetItem } from '../utils/pinAuth';
 
 const Stack = createStackNavigator<AuthStackParamList>();
 
@@ -39,15 +41,55 @@ const AuthNavigator: React.FC = () => {
         return;
       }
 
-      // If user exists, check whether a PIN is set
+      // If user exists, check whether a PIN is set (local first, then Firestore)
       try {
         console.debug('[AuthNavigator] User exists, checking if PIN is set...');
-        const pinExists = await hasPIN();
-        console.debug('[AuthNavigator] PIN exists:', pinExists);
+        
+        // Check local PIN first
+        let pinExists = await hasPIN();
+        console.debug('[AuthNavigator] Local PIN exists:', pinExists);
+
+        // If no local PIN, check Firestore with timeout and sync down
+        if (!pinExists) {
+          console.debug('[AuthNavigator] No local PIN, checking Firestore...');
+          
+          try {
+            const timeoutPromise = new Promise<boolean>((_, reject) => 
+              setTimeout(() => reject(new Error('Timeout')), 3000)
+            );
+            const remotePinExists = await Promise.race([
+              hasRemotePIN(user.uid),
+              timeoutPromise
+            ]);
+            console.debug('[AuthNavigator] Remote PIN exists:', remotePinExists);
+            
+            if (remotePinExists) {
+              // Sync PIN from Firestore to local with timeout
+              console.debug('[AuthNavigator] Syncing PIN from Firestore to local...');
+              const syncTimeoutPromise = new Promise<any>((_, reject) => 
+                setTimeout(() => reject(new Error('Timeout')), 3000)
+              );
+              const remotePinData = await Promise.race([
+                loadPINFromFirestore(user.uid),
+                syncTimeoutPromise
+              ]);
+              
+              if (remotePinData) {
+                await secureSetItem('user_pin_hashed', remotePinData.pinHash);
+                await secureSetItem('user_pin_salt', remotePinData.pinSalt);
+                console.debug('[AuthNavigator] PIN synced from Firestore to local');
+                pinExists = true;
+              }
+            }
+          } catch (firestoreError: any) {
+            console.warn('[AuthNavigator] Firestore PIN check failed (timeout or offline):', firestoreError?.message);
+            // Continue with local-only flow
+          }
+        }
 
         if (!pinExists) {
-          // No PIN set yet -> start from GoogleSignIn so flow will send user to PINSetup
-          console.debug('[AuthNavigator] No PIN, showing GoogleSignIn (will route to PINSetup after sign-in)');
+          // No PIN set anywhere -> start from GoogleSignIn so flow will send user to PINSetup
+          console.debug('[AuthNavigator] No PIN found (local or remote), showing GoogleSignIn (will route to PINSetup after sign-in)');
           if (mounted) setInitialRoute('GoogleSignIn');
           return;
         }

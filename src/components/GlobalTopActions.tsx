@@ -96,7 +96,7 @@ const GlobalTopActions: React.FC = () => {
       >
         <View style={styles.userInfo}>
           <Text style={styles.userText}>
-            <Text style={styles.welcomeText}>Hoşgeldiniz </Text>
+            <Text style={styles.welcomeText}>Merhaba </Text>
             <Text style={styles.emailText}>{user.email}</Text>
           </Text>
         </View>
@@ -170,8 +170,8 @@ const styles = StyleSheet.create({
   },
   welcomeText: {
     color: '#9CA3AF',
-    fontSize: 13,
-    fontWeight: '500',
+    fontSize: 14,
+    fontWeight: '600',
   },
   emailText: {
     color: '#FFFFFF',
