@@ -7,6 +7,7 @@ import type { RootStackParamList } from './types';
 
 // Import screens (placeholder imports - will be created)
 import MainScreen from '../screens/MainScreen';
+import EducationScreen from '../screens/EducationScreen';
 import AuthNavigator from './AuthNavigator';
 import ParentStack from './ParentStack';
 import StudentNavigator from './StudentNavigator';
@@ -26,6 +27,7 @@ const RootNavigator: React.FC = () => {
         }}
       >
         <Stack.Screen name="Main" component={MainScreen} />
+  <Stack.Screen name="Education" component={EducationScreen} />
         <Stack.Screen name="Auth" component={AuthNavigator} />
   <Stack.Screen name="ParentDashboard" component={ParentStack} />
         <Stack.Screen name="StudentFlow" component={StudentNavigator} />
