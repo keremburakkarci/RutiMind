@@ -1,5 +1,5 @@
 import React from 'react';
-import { SafeAreaView, View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
+import { SafeAreaView, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { RootStackNavigationProp } from '../navigation/types';
 import BackButton from '../components/BackButton';
@@ -12,8 +12,10 @@ const EducationScreen: React.FC = () => {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} label="Geri" accessibilityLabel="go-back" />
-        <Text style={styles.title}>Eğitim İçerikleri</Text>
-        <View style={{ width: 24 }} />
+        <View style={styles.headerText}>
+          <Text style={styles.title}>Eğitim İçerikleri</Text>
+          <Text style={styles.subtitle}>Kendini yönetme stratejileri ve uygulamanın kullanımına yönelik eğitici videolar aşağıdadır</Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 20 }}>
@@ -21,34 +23,64 @@ const EducationScreen: React.FC = () => {
           style={styles.card}
           onPress={() => navigation.navigate('SelfManagement' as any)}
         >
-          {/* Illustration - checklist/person to represent self-management */}
-          <View style={styles.smallIconContainer}>
-            <Svg width={44} height={44} viewBox="0 0 84 64">
-              <Rect x="0" y="8" width="84" height="48" rx="8" fill="#283044" />
-              <Circle cx="20" cy="28" r="8" fill="#64b5f6" />
-              <Path d="M34 22h32v4H34zM34 30h32v4H34z" fill="#9CA3AF" />
-              <Path d="M16 34l4 4 8-10" stroke="#fff" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
+          <View style={styles.cardInner}>
+            <View style={styles.smallIconContainer}>
+              <Svg width={40} height={40} viewBox="0 0 84 64">
+                {/* colorful rounded square background */}
+                <Rect x="0" y="6" width="84" height="52" rx="12" fill="#2D6A96" />
+                {/* accent circle */}
+                <Circle cx="22" cy="30" r="10" fill="#FFD166" />
+                {/* checklist lines */}
+                <Path d="M36 22h30" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
+                <Path d="M36 32h22" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
+                {/* check mark */}
+                <Path d="M20 34l5 5 10-12" stroke="#0F172A" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+            </View>
+            <View style={styles.cardTextWrap}>
+              <Text style={styles.cardTitle}>Kendini Yönetme Stratejileri Eğitimleri</Text>
+              <Text style={styles.cardLink}>Kendini yönetme stratejileri eğitim videolarına ulaşmak için tıklayın.</Text>
+            </View>
           </View>
-          <Text style={styles.smallCardTitle}>Kendini Yönetme Stratejileri Eğitimleri</Text>
-          <Text style={styles.smallCardDescription}>Kendini yönetme, kendi kendine yönergeler ve pekiştirme stratejileri hakkında rehberler.</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.card]}
-          onPress={() => Alert.alert('Uygulama Eğitimi', 'Uygulama kullanımı ile ilgili rehberler yakında ekleniyor.')}
+          style={styles.card}
+          onPress={() =>
+            navigation.navigate('VideoSequence' as any, {
+              screenTitle: 'Uygulama Eğitimi',
+              steps: [
+                { title: 'Uygulamaya giriş', videoUrl: null },
+                { title: 'Veli Paneline Giriş', videoUrl: null },
+                { title: 'Becerileri Belirleme', videoUrl: null },
+                { title: 'Pekişireçleri Belirleme', videoUrl: null },
+                { title: 'Gelişim Grafiğini Görüntüleme', videoUrl: null },
+                { title: 'Öğrenci moduna giriş', videoUrl: null },
+                { title: 'Örnek Video', videoUrl: null },
+              ],
+            })
+          }
         >
-          {/* Illustration - device/phone to represent app training */}
-          <View style={styles.smallIconContainer}>
-            <Svg width={44} height={44} viewBox="0 0 84 64">
-              <Rect x="22" y="6" width="40" height="52" rx="6" fill="#1e293b" />
-              <Rect x="30" y="14" width="24" height="28" rx="4" fill="#fff" />
-              <Circle cx="42" cy="46" r="2.5" fill="#9CA3AF" />
-              <Path d="M36 20h12M36 26h12M36 32h8" stroke="#1e293b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
+          <View style={styles.cardInner}>
+            <View style={styles.smallIconContainer}>
+              <Svg width={40} height={40} viewBox="0 0 84 64">
+                {/* colorful rounded square */}
+                <Rect x="0" y="6" width="84" height="52" rx="12" fill="#8B5CF6" />
+                {/* phone body */}
+                <Rect x="28" y="12" width="28" height="40" rx="6" fill="#0F172A" />
+                {/* screen */}
+                <Rect x="34" y="18" width="16" height="26" rx="3" fill="#10B981" />
+                {/* app dots */}
+                <Circle cx="40" cy="24" r="2" fill="#FBBF24" />
+                <Circle cx="48" cy="24" r="2" fill="#60A5FA" />
+                <Circle cx="44" cy="34" r="2" fill="#F472B6" />
+              </Svg>
+            </View>
+            <View style={styles.cardTextWrap}>
+              <Text style={styles.cardTitle}>Uygulama Eğitimi</Text>
+              <Text style={styles.cardLink}>Uygulama eğitimi videolarına ulaşmak için tıklayın.</Text>
+            </View>
           </View>
-          <Text style={styles.smallCardTitle}>Uygulama Eğitimi</Text>
-          <Text style={styles.smallCardDescription}>RutiMind uygulamasını kullanma, beceri ekleme ve pekiştireçleri yönetme rehberi.</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -57,8 +89,11 @@ const EducationScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1E1E1E' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#2d2d2d' },
-  title: { color: '#fff', fontSize: 18, fontWeight: '700' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', padding: 16, borderBottomWidth: 1, borderBottomColor: '#2d2d2d', marginTop: 60 },
+  back: { color: '#fff', marginRight: 12 },
+  headerText: { flexDirection: 'column' },
+  title: { color: '#fff', fontSize: 28, fontWeight: '700', marginBottom: 6 },
+  subtitle: { color: '#9CA3AF', fontSize: 14, marginTop: 0 },
   card: {
     borderRadius: 24,
     marginBottom: 20,
@@ -68,16 +103,19 @@ const styles = StyleSheet.create({
     borderColor: '#34495e',
   },
   smallIconContainer: {
-    width: 50,
-    height: 50,
+    width: 56,
+    height: 56,
     borderRadius: 16,
-    backgroundColor: '#34495e',
+    backgroundColor: '#162B3A',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
+    marginRight: 18,
   },
-  smallCardTitle: { fontSize: 18, fontWeight: 'bold', color: '#ffffff', marginBottom: 8 },
-  smallCardDescription: { fontSize: 14, color: '#bdc3c7' },
+  cardInner: { flexDirection: 'row', alignItems: 'center' },
+  cardTextWrap: { flex: 1 },
+  cardTitle: { fontSize: 20, fontWeight: '700', color: '#ffffff', marginBottom: 6 },
+  cardDesc: { fontSize: 14, color: '#bdc3c7' },
+  cardLink: { fontSize: 13, color: '#9CA3AF', marginTop: 8 },
 });
 
 export default EducationScreen;

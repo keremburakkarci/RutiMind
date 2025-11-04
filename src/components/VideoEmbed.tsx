@@ -4,6 +4,7 @@ import { Platform, View, StyleSheet, Text, TouchableOpacity, Linking } from 'rea
 type Props = {
   embedSrc: string; // full embed src e.g. https://www.youtube.com/embed/ID?params
   title?: string;
+  fullWidth?: boolean; // when true render at 100% width instead of 50%
 };
 
 function toWatchUrl(embedSrc: string) {
@@ -18,22 +19,31 @@ function toWatchUrl(embedSrc: string) {
   }
 }
 
-const VideoEmbed: React.FC<Props> = ({ embedSrc, title = 'Video' }) => {
+const VideoEmbed: React.FC<Props> = ({ embedSrc, title = 'Video', fullWidth = false }) => {
   const containerRef = useRef<any>(null);
 
   useEffect(() => {
     if (Platform.OS === 'web' && containerRef.current) {
-      // inject centered iframe HTML and scale to 50% width while keeping 16:9 aspect ratio
+      // Use a fixed 640x360 iframe to match requested size (centered)
+      const width = 640;
+      const height = 360;
+      // Left-aligned fixed-size iframe (no centering wrapper)
+      // Left-aligned fixed-size iframe (no centering wrapper)
+      // By default the iframe has pointer-events disabled so wheel/scroll over it will scroll the parent page.
+      // An overlay play button enables interaction (pointer events) when the user intentionally clicks the video.
       const html = `
-        <div style="width:100%;display:flex;justify-content:center;">
-          <div style=\"width:50%;position:relative;padding-bottom:56.25%;height:0;overflow:hidden;\">
-            <iframe src=\"${embedSrc}\" title=\"${title}\" style=\"position:absolute;top:0;left:0;width:100%;height:100%;border:0;\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>
+        <div style="width:100%;display:flex;justify-content:flex-start;">
+          <div style=\"width:${width}px;height:${height}px;position:relative;overflow:hidden;\">
+            <iframe id=\"rm-video-iframe\" src=\"${embedSrc}\" title=\"${title}\" width=\"${width}\" height=\"${height}\" style=\"border:0;width:100%;height:100%;display:block;pointer-events:none;\" frameborder=\"0\" allow=\"accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share\" allowfullscreen></iframe>
+            <div id=\"rm-video-overlay\" style=\"position:absolute;left:0;top:0;right:0;bottom:0;display:flex;align-items:center;justify-content:center;cursor:pointer;background:transparent;\" onclick=\"(function(ev){var f=document.getElementById('rm-video-iframe'); if(f){f.style.pointerEvents='auto';} var o=document.getElementById('rm-video-overlay'); if(o && o.parentNode){o.parentNode.removeChild(o);} ev && ev.stopPropagation();})()\">
+              <div style=\"width:64px;height:64px;border-radius:32px;background:rgba(0,0,0,0.55);display:flex;align-items:center;justify-content:center;color:#fff;font-size:28px;\">►</div>
+            </div>
           </div>
         </div>`;
       // set innerHTML
       containerRef.current.innerHTML = html;
     }
-  }, [embedSrc, title]);
+  }, [embedSrc, title, fullWidth]);
 
   if (Platform.OS === 'web') {
     return <View style={styles.webWrapper as any} ref={containerRef} />;
@@ -43,7 +53,7 @@ const VideoEmbed: React.FC<Props> = ({ embedSrc, title = 'Video' }) => {
   const watchUrl = toWatchUrl(embedSrc);
 
   return (
-    <View style={styles.nativeWrapper}>
+    <View style={[styles.nativeWrapper, fullWidth ? styles.nativeFull : null]}>
       <TouchableOpacity onPress={() => Linking.openURL(watchUrl)} style={styles.openButton}>
         <Text style={styles.openText}>Videoyu aç</Text>
       </TouchableOpacity>
@@ -55,16 +65,26 @@ const VideoEmbed: React.FC<Props> = ({ embedSrc, title = 'Video' }) => {
 const styles = StyleSheet.create({
   webWrapper: {
     width: '100%',
+    height: 360,
+    display: 'flex',
+    justifyContent: 'center',
     marginBottom: 12,
   },
   nativeWrapper: {
-    width: '50%',
+    width: 640,
+    height: 360,
     alignSelf: 'center',
     padding: 12,
     backgroundColor: '#111827',
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
+  },
+  nativeFull: {
+    width: '100%',
+    height: 360,
+    alignSelf: 'stretch',
   },
   openButton: {
     backgroundColor: '#2563eb',

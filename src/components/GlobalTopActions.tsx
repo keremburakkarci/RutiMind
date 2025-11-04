@@ -27,14 +27,13 @@ const GlobalTopActions: React.FC<Props> = ({ title, showBack }) => {
   // Subscribe to navigation state so this component re-renders when the active route changes
   const currentRouteName = useNavigationState((state) => getActiveRouteName(state));
   const isMainScreen = currentRouteName === 'Main';
-  
+
   // Show the "Ana Menü" button when NOT on Main screen (show on ParentHome, PIN screens, and all other screens)
   const showMainMenuButton = currentRouteName && !isMainScreen;
 
   const canGoBack = navigation.canGoBack();
 
   // Routes where we DO NOT want the global back button (these screens should show Ana Menü instead)
-  // ParentHome and PIN/Auth screens should NOT show back button
   const hideBackRoutes = new Set<string>([
     'Main',
     'ParentHome',
@@ -159,7 +158,7 @@ const GlobalTopActions: React.FC<Props> = ({ title, showBack }) => {
     // Use style.pointerEvents instead of prop to avoid react-native-web deprecation warnings
     <View style={[styles.topBar, { pointerEvents: 'box-none' }]}>
       {/* Left: optional back button + Screen title */}
-  <View style={[styles.leftContainer, { pointerEvents: 'box-none' }]}>
+      <View style={[styles.leftContainer, { pointerEvents: 'box-none' }]}>
         {((showBack || canGoBack) && !(currentRouteName && hideBackRoutes.has(currentRouteName))) && (
           <BackButton
             accessibilityLabel="go-back"
@@ -176,6 +175,7 @@ const GlobalTopActions: React.FC<Props> = ({ title, showBack }) => {
           </View>
         )}
       </View>
+
       {/* Ana Menü button - center top (only show when NOT on main screen and NOT on auth/PIN screens) */}
       {showMainMenuButton && (
         <TouchableOpacity
@@ -242,6 +242,8 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: '50%',
     transform: [{ translateX: -60 }],
+  // raised higher on the page so it sits above screen headers
+  top: Platform.OS === 'web' ? 36 : 28,
     backgroundColor: 'rgba(66, 133, 244, 0.95)',
     paddingVertical: 12,
     paddingHorizontal: 24,

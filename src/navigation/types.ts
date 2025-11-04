@@ -10,6 +10,7 @@ export type RootStackParamList = {
   Main: undefined;
   Education: undefined;
   SelfManagement: undefined;
+  VideoSequence: { screenTitle: string; steps: Array<{ title: string; videoUrl?: string | null }>; };
   Auth: undefined;
   ParentDashboard: undefined;
   StudentFlow: undefined;
