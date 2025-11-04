@@ -20,17 +20,26 @@ const ParentHome: React.FC = () => {
       </View>
 
       <View style={styles.menu}>
-        <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('ParentTabs' as never)}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('ParentTabs' as never, { screen: 'Skills' } as never)}
+        >
           <Text style={styles.cardTitle}>{t('skills.title', 'Beceri Listesi')}</Text>
           <Text style={styles.cardDesc}>{t('parent.goToSkills', 'Becerileri görüntüle ve düzenle')}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('ParentTabs' as never)}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('ParentTabs' as never, { screen: 'Reinforcers' } as never)}
+        >
           <Text style={styles.cardTitle}>{t('reinforcers.title', 'Pekiştireçler')}</Text>
           <Text style={styles.cardDesc}>{t('parent.goToReinforcers', 'Pekiştireçleri yönet')}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('ParentTabs' as never)}>
+        <TouchableOpacity
+          style={styles.card}
+          onPress={() => navigation.navigate('ParentTabs' as never, { screen: 'Progress' } as never)}
+        >
           <Text style={styles.cardTitle}>{t('progress.title', 'Gelişim Grafiği')}</Text>
           <Text style={styles.cardDesc}>{t('parent.goToProgress', 'Gelişimi görselleştir')}</Text>
         </TouchableOpacity>

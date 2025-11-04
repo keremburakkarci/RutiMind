@@ -1,10 +1,16 @@
 import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet, Alert, Platform } from 'react-native';
-import { useNavigation, useNavigationState } from '@react-navigation/native';
+import { useNavigation, useNavigationState, CommonActions } from '@react-navigation/native';
 import { useAuth } from '../../hooks/useAuth';
 import { useAuthStore } from '../store/authStore';
+import BackButton from './BackButton';
 
-const GlobalTopActions: React.FC = () => {
+type Props = {
+  title?: string;
+  showBack?: boolean;
+};
+
+const GlobalTopActions: React.FC<Props> = ({ title, showBack }) => {
   const navigation = useNavigation<any>();
   const { logout } = useAuth();
   const { user, setPINVerified } = useAuthStore();
@@ -21,6 +27,88 @@ const GlobalTopActions: React.FC = () => {
   // Subscribe to navigation state so this component re-renders when the active route changes
   const currentRouteName = useNavigationState((state) => getActiveRouteName(state));
   const isMainScreen = currentRouteName === 'Main';
+  
+  // Show the "Ana Menü" button when NOT on Main screen (show on ParentHome, PIN screens, and all other screens)
+  const showMainMenuButton = currentRouteName && !isMainScreen;
+
+  const canGoBack = navigation.canGoBack();
+
+  // Routes where we DO NOT want the global back button (these screens should show Ana Menü instead)
+  // ParentHome and PIN/Auth screens should NOT show back button
+  const hideBackRoutes = new Set<string>([
+    'Main',
+    'ParentHome',
+    'ParentDashboard',
+    'PINSetup',
+    'PINEntry',
+    'GoogleSignIn',
+    'Auth',
+  ]);
+
+  // Helper: recursively search a navigation state tree for a route name
+  const stateContainsRoute = (state: any, name: string): boolean => {
+    if (!state || !state.routes) return false;
+    for (const r of state.routes) {
+      if (r.name === name) return true;
+      if (r.state && stateContainsRoute(r.state, name)) return true;
+    }
+    return false;
+  };
+
+  const handleGoBack = () => {
+    console.log('🔴 [DEBUG] handleGoBack CALLED - START');
+    console.log('🔴 [DEBUG] currentRouteName:', currentRouteName);
+    
+    try {
+      // Robustly detect if we're inside the ParentTabs (Skills/Reinforcers/Progress)
+      const navState = navigation.getState && navigation.getState();
+      
+      console.log('🔴 [DEBUG] Full navigation state:', JSON.stringify(navState, null, 2));
+      
+      const insideParentTabs = stateContainsRoute(navState, 'Reinforcers') || 
+                               stateContainsRoute(navState, 'Skills') || 
+                               stateContainsRoute(navState, 'Progress') ||
+                               currentRouteName === 'ParentTabs'; // ALSO check if we're at the ParentTabs container level
+      
+      console.log('🔴 [DEBUG] insideParentTabs:', insideParentTabs);
+      console.log('🔴 [DEBUG] canGoBack:', navigation.canGoBack());
+
+      if (insideParentTabs) {
+        console.log('🔴 [DEBUG] Inside ParentTabs - will reset to ParentHome');
+        // Find the top-level navigation reference (root) and reset the ParentDashboard stack to show ParentHome
+        let navRef: any = navigation;
+        while (navRef.getParent()) {
+          console.log('🔴 [DEBUG] Moving up to parent navigator');
+          navRef = navRef.getParent();
+        }
+
+        console.log('🔴 [DEBUG] Dispatching reset to ParentDashboard > ParentHome');
+        navRef.dispatch(
+          CommonActions.reset({
+            index: 0,
+            routes: [
+              {
+                name: 'ParentDashboard',
+                state: {
+                  index: 0,
+                  routes: [{ name: 'ParentHome' }],
+                },
+              },
+            ],
+          })
+        );
+        console.log('🔴 [DEBUG] Reset dispatched successfully');
+        return;
+      }
+
+      // Default: just go back
+      console.log('🔴 [DEBUG] Not in ParentTabs - calling navigation.goBack()');
+      navigation.goBack();
+    } catch (e) {
+      console.error('🔴 [DEBUG] handleGoBack error:', e);
+      try { navigation.goBack(); } catch (_) {}
+    }
+  };
 
   const handleGoToMain = () => {
     // Reset PIN verification when going back to main menu
@@ -68,9 +156,28 @@ const GlobalTopActions: React.FC = () => {
   if (!user?.email) return null;
 
   return (
-    <View style={[styles.topBar, { pointerEvents: 'box-none' } as any]}>
-      {/* Ana Menü button - center top (only show when NOT on main screen) */}
-      {currentRouteName && !isMainScreen && (
+    // Use style.pointerEvents instead of prop to avoid react-native-web deprecation warnings
+    <View style={[styles.topBar, { pointerEvents: 'box-none' }]}>
+      {/* Left: optional back button + Screen title */}
+  <View style={[styles.leftContainer, { pointerEvents: 'box-none' }]}>
+        {((showBack || canGoBack) && !(currentRouteName && hideBackRoutes.has(currentRouteName))) && (
+          <BackButton
+            accessibilityLabel="go-back"
+            onPress={() => {
+              try { console.debug('[GlobalTopActions] backButton pressed (wrapper)'); } catch(_) {}
+              handleGoBack();
+            }}
+          />
+        )}
+
+        {title && (
+          <View style={[styles.leftTitleWrap, { pointerEvents: 'none' }]}>
+            <Text style={styles.leftTitle} numberOfLines={1} ellipsizeMode="tail">{title}</Text>
+          </View>
+        )}
+      </View>
+      {/* Ana Menü button - center top (only show when NOT on main screen and NOT on auth/PIN screens) */}
+      {showMainMenuButton && (
         <TouchableOpacity
           accessibilityLabel="go-to-main"
           onPress={handleGoToMain}
@@ -148,6 +255,26 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textAlign: 'center',
   },
+  leftTitleWrap: {
+    position: 'absolute',
+    left: 16,
+    // Move title below the back button so it appears under the back arrow instead of inline
+    top: Platform.OS === 'web' ? 56 : 56,
+  },
+  leftTitle: {
+    color: '#FFFFFF',
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'left',
+  },
+  leftContainer: {
+    position: 'absolute',
+    left: 8,
+    top: Platform.OS === 'web' ? 12 : 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  
   userCard: {
     position: 'absolute',
     right: 16,

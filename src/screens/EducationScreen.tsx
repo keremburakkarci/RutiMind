@@ -2,6 +2,7 @@ import React from 'react';
 import { SafeAreaView, View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { RootStackNavigationProp } from '../navigation/types';
+import BackButton from '../components/BackButton';
 import Svg, { Rect, Circle, Path } from 'react-native-svg';
 
 const EducationScreen: React.FC = () => {
@@ -10,9 +11,7 @@ const EducationScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.back}>← Geri</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} label="Geri" accessibilityLabel="go-back" />
         <Text style={styles.title}>Eğitim İçerikleri</Text>
         <View style={{ width: 24 }} />
       </View>
@@ -59,7 +58,6 @@ const EducationScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#1E1E1E' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 16, borderBottomWidth: 1, borderBottomColor: '#2d2d2d' },
-  back: { color: '#fff' },
   title: { color: '#fff', fontSize: 18, fontWeight: '700' },
   card: {
     borderRadius: 24,
