@@ -54,6 +54,12 @@ Copilot must always follow the technical, visual, and behavioral rules described
 ### ↕️ Interactions
 - Use **react-native-draggable-flatlist** for drag-and-drop item ordering (skills, reinforcers, etc.).
 
+Recent implementation notes (UI / interactions):
+- When rendering lists that can be modified by the user, always use stable, unique keys and run a small dedupe helper on loaded/merged arrays to avoid duplicate-key issues in React.
+- When adding a reinforcer into a slot, ensure the selected slot array stores a new object with the updated `slot` field (e.g. `{ ...reinforcer, slot: newSlot }`). This avoids stale references that break removal logic.
+- Avoid rendering raw primitive text nodes as direct children of <View> on web — always wrap strings in a `<Text>` component to prevent the "Unexpected text node" runtime error.
+- For accessibility and consistent UX, show a small confirmation modal when the user attempts to add a skill that's already selected (duplicate-add guard).
+
 ### 📊 Charts & Forms
 - **Charts:** `victory-native` + `react-native-svg`.
 - **Forms:** `react-hook-form` + `zod`.
@@ -62,10 +68,20 @@ Copilot must always follow the technical, visual, and behavioral rules described
   - Each selected skill has a duration and an image.
   - Required fields must not be empty.
 
+Web persistence notes:
+- On web builds (react-native-web) some native APIs (SQLite, Haptics, ImagePicker behavior) are not available or behave differently. Provide safe fallbacks:
+  - Use `expo-sqlite` for native domain storage, but on `Platform.OS === 'web'` persist user-added lists to `localStorage` using stable keys (`skills_web` and `reinforcers_web`).
+  - Guard calls to `expo-haptics` behind a platform check (no-op on web).
+
 ### ♿ Accessibility & Feedback
 - Every touchable element must have an **accessibility label**.
 - Use **semantic headings** for screen titles.
 - Provide **haptic and vibration feedback** via `expo-haptics` and `Vibration`.
+
+UI conventions (recent updates):
+- Use a single top-level navigation control component (`GlobalTopActions`) that provides the left title/back area, a centered "Ana Menü" button and the user card on the right. Do not add inline BackButton instances inside screen headers — this avoids duplicated back controls.
+- Use a shared header component (`HeaderTitle` / `SharedHeader`) for page titles to ensure all major screens (Veli Paneli / Beceri Listesi / Pekiştireçler / Kendini Yönetme / Eğitim İçerikleri) use the same font size and weight.
+- Align any per-screen "Ana Menü" buttons (e.g., auth screens) to the same top position as `GlobalTopActions` by reusing `MainMenuStyles` from the shared header module.
 
 ### 🧪 Testing & Quality
 - **Jest** → Unit tests.  
@@ -86,6 +102,11 @@ Copilot must always follow the technical, visual, and behavioral rules described
 - Encrypt sensitive data.
 - Provide user options to **export or delete** all personal data.
 - Do not expose authentication tokens in logs.
+
+Developer notes (debugging & merges):
+- When adding or updating screens, run a quick smoke lint/TS check; look for unused imports introduced while refactoring header/back controls.
+- Keep an eye out for React/warning messages on web: duplicate keys (fix by dedupe + stable keys) and "Unexpected text node" errors (wrap strings in `<Text>`).
+- For cross-branch work, prefer small self-contained commits with clear messages; the repository uses feature branches like `functionalDev` and `designDev` that are merged into `master` after conflict resolution.
 
 ---
 

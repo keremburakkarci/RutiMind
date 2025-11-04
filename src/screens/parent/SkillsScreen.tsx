@@ -484,33 +484,41 @@ const SkillsScreen: React.FC = () => {
 
                   {isOpen && (
                     <View style={styles.skillsList}>
-                      {category.skills.map((skill, index) => (
-                        <View key={`${category.id}-${index}`} style={styles.skillItem}>
-                          <TouchableOpacity
-                            style={styles.skillItemClickable}
-                            onPress={() => handleAddSkill(category.id, skill)}
-                            activeOpacity={0.7}
-                          >
-                            <Text style={styles.skillItemText}>{skill}</Text>
-                            <Text style={styles.addIcon}>+</Text>
-                          </TouchableOpacity>
-                          
-                          {/* Delete button for user-added skills in library */}
-                          <TouchableOpacity
-                            style={styles.deleteLibraryButton}
-                            onPress={(e) => {
-                              if (Platform.OS === 'web') {
-                                e?.stopPropagation?.();
-                              }
-                              confirmDeleteFromLibrary(category.id, skill);
-                            }}
-                            activeOpacity={0.7}
-                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                          >
-                            <Text style={styles.deleteButtonText}>🗑️</Text>
-                          </TouchableOpacity>
-                        </View>
-                      ))}
+                      {category.skills.map((skill, index) => {
+                        // Determine if this skill is part of the original default list for this category
+                        const originalCategory = skillCategories.find((c) => c.id === category.id);
+                        const isDefaultSkill = !!originalCategory && Array.isArray(originalCategory.skills) && originalCategory.skills.includes(skill);
+
+                        return (
+                          <View key={`${category.id}-${index}`} style={styles.skillItem}>
+                            <TouchableOpacity
+                              style={styles.skillItemClickable}
+                              onPress={() => handleAddSkill(category.id, skill)}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={styles.skillItemText}>{skill}</Text>
+                              <Text style={styles.addIcon}>+</Text>
+                            </TouchableOpacity>
+
+                            {/* Show delete button only for user-added (non-default) skills */}
+                            {!isDefaultSkill && (
+                              <TouchableOpacity
+                                style={styles.deleteLibraryButton}
+                                onPress={(e) => {
+                                  if (Platform.OS === 'web') {
+                                    e?.stopPropagation?.();
+                                  }
+                                  confirmDeleteFromLibrary(category.id, skill);
+                                }}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                              >
+                                <Text style={styles.deleteButtonText}>🗑️</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      })}
                     </View>
                   )}
                 </View>
