@@ -72,13 +72,16 @@ const GoogleSignInScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Text style={styles.backIcon}>←</Text>
-        <Text style={styles.backText}>{t('common.back')}</Text>
-      </TouchableOpacity>
+      {/* Ana Menü button - centered at top */}
+      <View style={styles.topBar}>
+        <TouchableOpacity
+          accessibilityLabel="go-to-main"
+          onPress={() => navigation.navigate('Main')}
+          style={styles.mainMenuButton}
+        >
+          <Text style={styles.mainMenuText}>Ana Menü</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={styles.content}>
         <View style={styles.logoContainer}>
@@ -121,22 +124,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1E1E1E',
   },
-  backButton: {
-    flexDirection: 'row',
+  topBar: {
     alignItems: 'center',
-    padding: 16,
-    marginTop: 8,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
-  backIcon: {
-    fontSize: 20,
+  mainMenuButton: {
+    backgroundColor: 'rgba(66, 133, 244, 0.95)',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  mainMenuText: {
     color: '#FFFFFF',
-    marginRight: 8,
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
   },
-  backText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
+  
   content: {
     flex: 1,
     paddingHorizontal: 24,

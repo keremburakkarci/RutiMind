@@ -86,14 +86,27 @@ export default {
   reinforcers: {
     title: 'Reinforcers',
     subtitle: 'Edit and manage reinforcers',
+    library: 'Reinforcer Library',
+    slots: 'Slot Layout',
+    add: 'Add',
+    addNew: 'Add New Reinforcer',
     list: 'Reinforcer List',
     selected: 'Selected Reinforcers',
     addReinforcer: 'Add Reinforcer',
     name: 'Name',
+    namePlaceholder: 'Enter reinforcer name',
     slot: 'Slot',
     slotDescription: 'After how many positive behaviors should this reinforcer appear?',
+    uploadImage: 'Upload Image',
+    save: 'Save',
+    saved: 'Reinforcers saved!',
     saveSuccess: 'Reinforcers saved successfully',
     emptyState: 'No reinforcers added yet',
+    emptySlot: 'This slot is empty',
+    noReinforcers: 'No reinforcers yet.\nAdd a new reinforcer using the "Add" button.',
+    noSlotsSelected: 'At least one slot must be filled',
+    deleteConfirm: 'Delete Reinforcer',
+    deleteMessage: 'Are you sure you want to delete this reinforcer?',
   },
   
   // Progress
@@ -179,11 +192,21 @@ export default {
   
   // Errors
   errors: {
+    title: 'Error',
     generic: 'An error occurred. Please try again.',
     network: 'Network connection error',
     authentication: 'Authentication error. Please try again.',
-    permission: 'Permission required for this action',
+    permission: 'Permission Required',
+    cameraPermission: 'Gallery access permission is required to select photos.',
+    imagePicker: 'An error occurred while uploading the image.',
     notFound: 'Content not found',
     serverError: 'Server error. Please try again later.',
+    validation: 'Validation Error',
+  },
+  
+  // Success messages
+  success: {
+    title: 'Success',
+    saved: 'Saved!',
   },
 };

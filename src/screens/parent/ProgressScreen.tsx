@@ -12,6 +12,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import GlobalTopActions from '../../components/GlobalTopActions';
 import {
   VictoryLine,
   VictoryChart,
@@ -234,11 +235,10 @@ const ProgressScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>{t('progress.title')}</Text>
-        
-        {/* Date Range Selector */}
+      {/* Global top actions + spacer */}
+  <GlobalTopActions title={t('progress.title')} showBack />
+      <View style={styles.headerSpacer}>
+        {/* Date Range Selector (moved below top bar) */}
         <View style={styles.dateRangeSelector}>
           <TouchableOpacity
             style={[styles.rangeButton, dateRange === 'week' && styles.rangeButtonActive]}
@@ -373,6 +373,13 @@ const styles = StyleSheet.create({
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#3D3D3D',
+  },
+  headerSpacer: {
+    height: 72,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#3D3D3D',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 24,

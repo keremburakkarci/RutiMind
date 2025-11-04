@@ -135,10 +135,6 @@ const PINEntryScreen: React.FC = () => {
     }
   };
 
-  const handleBack = () => {
-    navigation.goBack();
-  };
-
   const handleForgotPIN = () => {
     console.debug('[PINEntryScreen] Forgot PIN pressed');
 
@@ -217,14 +213,6 @@ const PINEntryScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={handleBack}
-      >
-        <Text style={styles.backIcon}>←</Text>
-        <Text style={styles.backText}>{t('common.back')}</Text>
-      </TouchableOpacity>
-
       <KeyboardAvoidingView 
         style={styles.content}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -308,22 +296,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#1E1E1E',
   },
-  backButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: 16,
-    marginTop: 8,
-  },
-  backIcon: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    marginRight: 8,
-  },
-  backText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '500',
-  },
+  
   content: {
     flex: 1,
     paddingHorizontal: 32,

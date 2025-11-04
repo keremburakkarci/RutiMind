@@ -12,8 +12,11 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Modal,
+  Platform,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import GlobalTopActions from '../../components/GlobalTopActions';
 import { useTranslation } from 'react-i18next';
 import DraggableFlatList, {
   RenderItemParams,
@@ -28,6 +31,22 @@ import type { SelectedSkill } from '../../types';
 
 const SkillsScreen: React.FC = () => {
   const { t } = useTranslation();
+  // Safe Haptics wrapper to guard web platform
+  const safeHaptic = async (type: 'impact' | 'notification' = 'impact', style?: any) => {
+    try {
+      if (Platform.OS === 'web') return;
+      if (type === 'impact' && (Haptics as any)?.impactAsync) {
+        await (Haptics as any).impactAsync(style || Haptics.ImpactFeedbackStyle.Light);
+        return;
+      }
+      if (type === 'notification' && (Haptics as any)?.notificationAsync) {
+        await (Haptics as any).notificationAsync(style);
+        return;
+      }
+    } catch (e) {
+      console.debug('[SkillsScreen] Haptics error', e);
+    }
+  };
   
   // Zustand store
   const { 
@@ -38,22 +57,79 @@ const SkillsScreen: React.FC = () => {
     updateSkill,
   } = useSkillsStore();
 
+  // Local mutable copy of categories so we can add new skills into the library
+  const [categories, setCategories] = useState(() =>
+    skillCategories.map(cat => ({ ...cat, skills: Array.isArray(cat.skills) ? [...cat.skills] : [] }))
+  );
+
+  // Load saved categories from localStorage on web so newly added skills persist across reloads
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    try {
+      const raw = (globalThis as any)?.localStorage?.getItem('skills_web');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      // Normalize parsed structure: ensure each category has skills array
+      const normalized = parsed.map((c: any) => ({
+        ...c,
+        skills: Array.isArray(c?.skills) ? c.skills.filter((s: any) => typeof s === 'string') : [],
+      }));
+      setCategories(normalized);
+      console.log('[SkillsScreen] loaded categories from localStorage, count:', normalized.length);
+    } catch (e) {
+      console.warn('[SkillsScreen] Failed to load categories from localStorage', e);
+    }
+  }, []);
+
+  // Persist categories to localStorage on web when categories change
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    try {
+      const toSave = categories.map(c => ({ id: c.id, title: c.title, icon: c.icon, color: c.color, skills: c.skills }));
+      (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('skills_web', JSON.stringify(toSave));
+    } catch (e) {
+      console.warn('[SkillsScreen] Failed to persist categories to localStorage', e);
+    }
+  }, [categories]);
+
   // Local state
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [openCategories, setOpenCategories] = useState<string[]>(
+    skillCategories.map(c => c.id)
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadingSkillId, setUploadingSkillId] = useState<string | null>(null);
 
-  // Filter skills by category and search
+  // Add modal state for creating a new skill
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [newSkillName, setNewSkillName] = useState('');
+  const [newSkillCategory, setNewSkillCategory] = useState<string | null>(skillCategories?.[0]?.id || null);
+
+  // Duplicate-add confirmation modal (when same skill is already selected)
+  const [duplicateModalVisible, setDuplicateModalVisible] = useState(false);
+  const [duplicateTarget, setDuplicateTarget] = useState<{ categoryId: string; skillName: string } | null>(null);
+
+  // Delete confirmation modal state (only for library items, not selected skills)
+  const [deleteLibraryModalVisible, setDeleteLibraryModalVisible] = useState(false);
+  const [deleteLibraryTarget, setDeleteLibraryTarget] = useState<{ categoryId: string; skillName: string } | null>(null);
+
+  // Filter skills by search only
   const filteredCategories = useMemo(() => {
-    return skillCategories.map(category => ({
-      ...category,
-      skills: category.skills.filter(skill =>
-        skill.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
-    })).filter(category => 
-      !selectedCategory || category.id === selectedCategory
-    );
-  }, [searchQuery, selectedCategory]);
+    // Sort categories alphabetically, then filter & sort their skills
+    return [...categories]
+      .sort((a, b) => a.title.localeCompare(b.title, 'tr', { sensitivity: 'base' }))
+      .map(category => ({
+        ...category,
+        skills: (category.skills || [])
+          .filter(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()))
+          .sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' })),
+      }));
+  }, [searchQuery, categories]);
+
+  // Categories ordered for display (used in modal and elsewhere)
+  const categoriesOrdered = useMemo(() => {
+    return [...categories].sort((a, b) => a.title.localeCompare(b.title, 'tr', { sensitivity: 'base' }));
+  }, [categories]);
 
   // Calculate total duration
   const totalDuration = useMemo(() => {
@@ -86,8 +162,8 @@ const SkillsScreen: React.FC = () => {
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
         );
 
-        updateSkill(skillId, { imageUri: manipResult.uri });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  updateSkill(skillId, { imageUri: manipResult.uri });
+  await safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
         setUploadingSkillId(null);
       }
     } catch (error) {
@@ -104,6 +180,15 @@ const SkillsScreen: React.FC = () => {
       return;
     }
 
+    // If this skill name is already selected, ask for confirmation before adding
+    const alreadySelected = selectedSkills.some(s => s.skillName === skillName);
+    if (alreadySelected) {
+      console.debug('[SkillsScreen] Duplicate add detected for skill:', skillName);
+      setDuplicateTarget({ categoryId, skillName });
+      setDuplicateModalVisible(true);
+      return;
+    }
+
     const skillId = `${categoryId}-${skillName}-${Date.now()}`;
     const newSkill: SelectedSkill = {
       skillId,
@@ -114,13 +199,105 @@ const SkillsScreen: React.FC = () => {
     };
 
     addSkill(newSkill);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    safeHaptic('impact', Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  // Remove skill
+  // Confirm adding a duplicate (user chose to proceed)
+  const confirmDuplicateAdd = () => {
+    if (!duplicateTarget) return;
+    if (selectedSkills.length >= MAX_SELECTED_SKILLS) {
+      Alert.alert(t('errors.title'), t('skills.maxSkillsReached'));
+      setDuplicateModalVisible(false);
+      setDuplicateTarget(null);
+      return;
+    }
+
+    const { categoryId, skillName } = duplicateTarget;
+    const skillId = `${categoryId}-${skillName}-${Date.now()}`;
+    const newSkill: SelectedSkill = {
+      skillId,
+      skillName,
+      order: selectedSkills.length + 1,
+      duration: 5,
+      imageUri: '',
+    };
+
+    console.debug('[SkillsScreen] User confirmed duplicate add for skill:', skillName);
+    addSkill(newSkill);
+    safeHaptic('impact', Haptics.ImpactFeedbackStyle.Medium);
+    setDuplicateModalVisible(false);
+    setDuplicateTarget(null);
+  };
+
+  // Remove skill from selected (right panel) - direct removal, no modal
   const handleRemoveSkill = (skillId: string) => {
     removeSkill(skillId);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    safeHaptic('impact', Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  // Confirm delete from library (left panel) - open modal
+  const confirmDeleteFromLibrary = (categoryId: string, skillName: string) => {
+    setDeleteLibraryTarget({ categoryId, skillName });
+    setDeleteLibraryModalVisible(true);
+  };
+
+  // Perform library skill deletion
+  const performDeleteFromLibrary = () => {
+    if (!deleteLibraryTarget) return;
+    const { categoryId, skillName } = deleteLibraryTarget;
+    
+    setCategories(prev => prev.map(cat => {
+      if (cat.id === categoryId) {
+        return { ...cat, skills: cat.skills.filter(s => s !== skillName) };
+      }
+      return cat;
+    }));
+
+    setDeleteLibraryModalVisible(false);
+    setDeleteLibraryTarget(null);
+    safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
+  };
+
+  // Handle add from modal
+  const handleAddFromModal = () => {
+    if (!newSkillName.trim() || !newSkillCategory) {
+      Alert.alert(t('errors.validation'), t('skills.nameRequired') || 'İsim girin ve kategori seçin');
+      return;
+    }
+
+    // Normalize input once
+    const normalized = (newSkillName || '').trim();
+
+    // Add the new skill into the library (categories state) — do NOT add to selectedSkills
+    setCategories(prev => {
+      let added = false;
+      const next = prev.map(cat => {
+        if (cat.id === newSkillCategory) {
+          // Avoid duplicates
+          if (!cat.skills.includes(normalized)) {
+            added = true;
+            return { ...cat, skills: [...cat.skills, normalized] };
+          }
+        }
+        return cat;
+      });
+
+      // If the category id wasn't found for some reason, fallback to first category
+      if (!added && next.length > 0) {
+        next[0] = { ...next[0], skills: [...(next[0].skills || []), normalized] };
+      }
+
+      return next;
+    });
+
+    // Ensure the category is open so user can see the newly added skill
+    setOpenCategories(prev => prev.includes(newSkillCategory) ? prev : [...prev, newSkillCategory]);
+
+    // Clear search so the added item is visible and reset modal state
+    setSearchQuery('');
+    setNewSkillName('');
+    setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null);
+    setAddModalVisible(false);
   };
 
   // Save validation
@@ -139,7 +316,7 @@ const SkillsScreen: React.FC = () => {
       return;
     }
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
     Alert.alert(t('success.title'), t('skills.saved'));
   };
 
@@ -234,58 +411,110 @@ const SkillsScreen: React.FC = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>{t('skills.title')}</Text>
-          <Text style={styles.subtitle}>
-            {selectedSkills.length}/{MAX_SELECTED_SKILLS} {t('skills.selected')} • {totalDuration} {t('skills.minutes')}
-          </Text>
-        </View>
+        {/* Global top actions (title left, main menu center, user right) */}
+  <GlobalTopActions title={t('skills.title')} showBack />
+
+        {/* Spacer to avoid overlapping with absolute top bar */}
+        <View style={styles.headerSpacer} />
 
       {/* Split View */}
       <View style={styles.splitView}>
         {/* Left Panel - Skill Categories */}
         <View style={styles.leftPanel}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder={t('skills.search')}
-            placeholderTextColor="#666"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+          <View style={styles.leftPanelHeaderRow}>
+            <Text style={styles.panelTitle}>Beceri Listesi</Text>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => {
+                // Default the modal category to the first in the ordered list so ordering matches the left list
+                setNewSkillCategory(categoriesOrdered?.[0]?.id || newSkillCategory);
+                setAddModalVisible(true);
+              }}
+            >
+              <Text style={styles.addButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Search Box */}
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t('skills.search')}
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                style={styles.searchClearButton}
+                onPress={() => setSearchQuery('')}
+              >
+                <Text style={styles.searchClearText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <ScrollView style={styles.categoriesList}>
-            {filteredCategories.map(category => (
-              <View key={category.id} style={styles.categorySection}>
-                <TouchableOpacity
-                  style={[
-                    styles.categoryHeader,
-                    { backgroundColor: category.color + '20' }
-                  ]}
-                  onPress={() => setSelectedCategory(
-                    selectedCategory === category.id ? null : category.id
-                  )}
-                >
-                  <Text style={styles.categoryIcon}>{category.icon}</Text>
-                  <Text style={styles.categoryTitle}>{category.title}</Text>
-                </TouchableOpacity>
+            {filteredCategories.map(category => {
+              const isOpen = openCategories.includes(category.id);
+              
+              return (
+                <View key={category.id} style={styles.categorySection}>
+                  <TouchableOpacity
+                    style={[
+                      styles.categoryHeader,
+                      { backgroundColor: category.color + '20' }
+                    ]}
+                    onPress={() => {
+                      setOpenCategories(prev => 
+                        prev.includes(category.id) 
+                          ? prev.filter(x => x !== category.id) 
+                          : [...prev, category.id]
+                      );
+                      safeHaptic('impact', Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={styles.categoryIcon}>{category.icon}</Text>
+                    <Text style={styles.categoryTitle}>{category.title} <Text style={styles.categoryCount}>({category.skills.length})</Text></Text>
+                    <View style={styles.expandButton}>
+                      <Text style={styles.expandButtonText}>{isOpen ? '−' : '+'}</Text>
+                    </View>
+                  </TouchableOpacity>
 
-                {(!selectedCategory || selectedCategory === category.id) && (
-                  <View style={styles.skillsList}>
-                    {category.skills.map((skill, index) => (
-                      <TouchableOpacity
-                        key={`${category.id}-${index}`}
-                        style={styles.skillItem}
-                        onPress={() => handleAddSkill(category.id, skill)}
-                      >
-                        <Text style={styles.skillItemText}>{skill}</Text>
-                        <Text style={styles.addIcon}>+</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
+                  {isOpen && (
+                    <View style={styles.skillsList}>
+                      {category.skills.map((skill, index) => (
+                        <View key={`${category.id}-${index}`} style={styles.skillItem}>
+                          <TouchableOpacity
+                            style={styles.skillItemClickable}
+                            onPress={() => handleAddSkill(category.id, skill)}
+                            activeOpacity={0.7}
+                          >
+                            <Text style={styles.skillItemText}>{skill}</Text>
+                            <Text style={styles.addIcon}>+</Text>
+                          </TouchableOpacity>
+                          
+                          {/* Delete button for user-added skills in library */}
+                          <TouchableOpacity
+                            style={styles.deleteLibraryButton}
+                            onPress={(e) => {
+                              if (Platform.OS === 'web') {
+                                e?.stopPropagation?.();
+                              }
+                              confirmDeleteFromLibrary(category.id, skill);
+                            }}
+                            activeOpacity={0.7}
+                            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          >
+                            <Text style={styles.deleteButtonText}>🗑️</Text>
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </ScrollView>
         </View>
 
@@ -293,6 +522,9 @@ const SkillsScreen: React.FC = () => {
         <View style={styles.rightPanel}>
           <View style={styles.rightPanelHeader}>
             <Text style={styles.rightPanelTitle}>{t('skills.selectedSkills')}</Text>
+            <Text style={styles.rightPanelSubtitle}>
+              {selectedSkills.length}/{MAX_SELECTED_SKILLS}
+            </Text>
           </View>
 
           <View style={styles.selectedSkillsList}>
@@ -307,20 +539,18 @@ const SkillsScreen: React.FC = () => {
                 </Text>
               </View>
             ) : (
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <DraggableFlatList
-                  data={selectedSkills}
-                  onDragEnd={({ from, to }) => {
-                    reorderSkills(from, to);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  keyExtractor={(item) => item.skillId}
-                  renderItem={renderSkillItem}
-                  contentContainerStyle={styles.draggableListContent}
-                  activationDistance={10}
-                  dragItemOverflow={true}
-                />
-              </GestureHandlerRootView>
+              <DraggableFlatList
+                data={selectedSkills}
+                onDragEnd={({ from, to }) => {
+                  reorderSkills(from, to);
+                  safeHaptic('impact', Haptics.ImpactFeedbackStyle.Light);
+                }}
+                keyExtractor={(item) => item.skillId}
+                renderItem={renderSkillItem}
+                contentContainerStyle={styles.draggableListContent}
+                activationDistance={10}
+                dragItemOverflow={true}
+              />
             )}
           </View>
 
@@ -337,6 +567,138 @@ const SkillsScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Add Skill Modal */}
+      <Modal
+        visible={addModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setAddModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Yeni Beceri Ekle</Text>
+              <TouchableOpacity onPress={() => setAddModalVisible(false)}>
+                <Text style={styles.modalCloseButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Name Input */}
+            <TextInput
+              style={styles.input}
+              placeholder="Beceri adı girin..."
+              placeholderTextColor="#666"
+              value={newSkillName}
+              onChangeText={setNewSkillName}
+            />
+
+            {/* Category selection */}
+            <Text style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 8 }}>Kategori seçin:</Text>
+            <ScrollView style={{ maxHeight: 180, marginBottom: 12 }}>
+              {categoriesOrdered.map(cat => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.skillItem,
+                    { marginVertical: 4, backgroundColor: newSkillCategory === cat.id ? '#333' : '#2D2D2D' }
+                  ]}
+                  onPress={() => setNewSkillCategory(cat.id)}
+                >
+                  <Text style={styles.skillItemText}>{cat.title}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleAddFromModal}
+            >
+              <Text style={styles.submitButtonText}>Ekle</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {/* Duplicate-add Confirmation Modal (when a selected skill is added again) */}
+      <Modal
+        visible={duplicateModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => { setDuplicateModalVisible(false); setDuplicateTarget(null); }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 420 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Beceri Zaten Seçili</Text>
+              <TouchableOpacity onPress={() => { setDuplicateModalVisible(false); setDuplicateTarget(null); }}>
+                <Text style={styles.modalCloseButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ color: '#ddd', marginBottom: 12 }}>Bu beceri zaten seçili. Yine de eklemek istiyor musunuz?</Text>
+            {duplicateTarget?.skillName ? (
+              <Text style={{ color: '#fff', fontWeight: '600', marginBottom: 18 }}>{duplicateTarget.skillName}</Text>
+            ) : null}
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: '#3D3D3D', flex: 1, marginRight: 8 }]}
+                onPress={() => { setDuplicateModalVisible(false); setDuplicateTarget(null); }}
+              >
+                <Text style={styles.submitButtonText}>İptal</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: '#4285F4', flex: 1, marginLeft: 8 }]}
+                onPress={confirmDuplicateAdd}
+              >
+                <Text style={styles.submitButtonText}>Ekle</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal (for library items only) */}
+      <Modal
+        visible={deleteLibraryModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => { setDeleteLibraryModalVisible(false); setDeleteLibraryTarget(null); }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Beceri Sil</Text>
+              <TouchableOpacity onPress={() => { setDeleteLibraryModalVisible(false); setDeleteLibraryTarget(null); }}>
+                <Text style={styles.modalCloseButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ color: '#ddd', marginBottom: 12 }}>Bu beceriyi listeden silmek istediğinizden emin misiniz?</Text>
+            {deleteLibraryTarget?.skillName ? (
+              <Text style={{ color: '#fff', fontWeight: '600', marginBottom: 18 }}>{deleteLibraryTarget.skillName}</Text>
+            ) : null}
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: '#3D3D3D', flex: 1, marginRight: 8 }]}
+                onPress={() => { setDeleteLibraryModalVisible(false); setDeleteLibraryTarget(null); }}
+              >
+                <Text style={styles.submitButtonText}>İptal</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: '#e74c3c', flex: 1, marginLeft: 8 }]}
+                onPress={performDeleteFromLibrary}
+              >
+                <Text style={styles.submitButtonText}>Sil</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -352,15 +714,44 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#3D3D3D',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
+  headerSpacer: {
+    height: 96,
   },
-  subtitle: {
-    fontSize: 14,
+  panelTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  leftPanelHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  searchContainer: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    position: 'relative',
+  },
+  searchClearButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#3D3D3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchClearText: {
     color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   splitView: {
     flex: 1,
@@ -373,12 +764,14 @@ const styles = StyleSheet.create({
     backgroundColor: '#1E1E1E',
   },
   searchInput: {
-    margin: 16,
-    padding: 12,
     backgroundColor: '#2D2D2D',
-    borderRadius: 8,
     color: '#FFFFFF',
     fontSize: 14,
+    padding: 12,
+    paddingRight: 40,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
   },
   categoriesList: {
     flex: 1,
@@ -390,7 +783,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     marginVertical: 4,
     borderRadius: 8,
   },
@@ -404,8 +797,38 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     flex: 1,
   },
-  skillsList: {
+  categoryCount: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginLeft: 8,
+  },
+  expandButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#3D3D3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+  },
+  expandButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  addButton: {
     paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#4285F4',
+    borderRadius: 8,
+  },
+  addButtonText: {
+    fontSize: 18,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
+  skillsList: {
+    paddingHorizontal: 16,
   },
   skillItem: {
     flexDirection: 'row',
@@ -415,6 +838,15 @@ const styles = StyleSheet.create({
     marginVertical: 2,
     backgroundColor: '#2D2D2D',
     borderRadius: 6,
+    position: 'relative',
+    paddingRight: 68, // leave room for delete button
+  },
+  skillItemClickable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 8,
   },
   skillItemText: {
     fontSize: 14,
@@ -426,19 +858,39 @@ const styles = StyleSheet.create({
     color: '#4285F4',
     fontWeight: 'bold',
   },
+  deleteLibraryButton: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    zIndex: 10,
+  },
+  deleteButtonText: {
+    fontSize: 18,
+  },
   rightPanel: {
     flex: 1,
     backgroundColor: '#1E1E1E',
   },
   rightPanelHeader: {
     padding: 16,
+    marginTop: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#3D3D3D',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   rightPanelTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  rightPanelSubtitle: {
+    fontSize: 14,
+    color: '#9CA3AF',
   },
   selectedSkillsList: {
     flex: 1,
@@ -458,7 +910,8 @@ const styles = StyleSheet.create({
   selectedSkillItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    padding: 12,
+    minHeight: 70,
     backgroundColor: '#2D2D2D',
     marginHorizontal: 12,
     marginVertical: 4,
@@ -597,6 +1050,58 @@ const styles = StyleSheet.create({
     backgroundColor: '#3D3D3D',
   },
   saveButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 500,
+    backgroundColor: '#2D2D2D',
+    borderRadius: 12,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  modalCloseButton: {
+    fontSize: 20,
+    color: '#9CA3AF',
+  },
+  input: {
+    width: '100%',
+    padding: 12,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 8,
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
+  },
+  submitButton: {
+    width: '100%',
+    padding: 12,
+    backgroundColor: '#4285F4',
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  submitButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
