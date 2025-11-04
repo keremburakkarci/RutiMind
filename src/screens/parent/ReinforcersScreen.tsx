@@ -17,6 +17,7 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import GlobalTopActions from '../../components/GlobalTopActions';
+import HeaderTitle from '../../components/SharedHeader';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { reinforcerCategories, allReinforcers as defaultReinforcers } from '../../../data/reinforcersData';
@@ -497,7 +498,7 @@ const ReinforcersScreen: React.FC = () => {
         {/* Left Panel - Reinforcers Library */}
         <View style={styles.leftPanel}>
           <View style={styles.leftPanelHeaderRow}>
-            <Text style={styles.panelTitle}>{t('reinforcers.library')}</Text>
+              <HeaderTitle style={{ fontSize: 20 }}>{t('reinforcers.library')}</HeaderTitle>
             <TouchableOpacity
               style={styles.addButton}
               onPress={() => setModalVisible(true)}

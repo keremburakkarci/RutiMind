@@ -1,8 +1,9 @@
 import React from 'react';
 import { useEffect } from 'react';
-import { SafeAreaView, View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
-import type { RootStackNavigationProp } from '../navigation/types';
+import { SafeAreaView, View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
+import HeaderTitle from '../components/SharedHeader';
+// This screen relies on GlobalTopActions for back navigation
+// navigation types intentionally unused (GlobalTopActions handles back navigation)
 import VideoEmbed from '../components/VideoEmbed';
 
 const STEP_TITLES = [
@@ -23,7 +24,7 @@ const VIDEO_URLS: Array<string | null> = [
 ];
 
 const SelfManagementScreen: React.FC = () => {
-  const navigation = useNavigation<RootStackNavigationProp>();
+  // navigation not needed here because GlobalTopActions provides back navigation
 
   // On web ensure the page is scrollable (some global styles may set overflow:hidden).
   useEffect(() => {
@@ -44,11 +45,8 @@ const SelfManagementScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Education' as never)}>
-          <Text style={styles.back}>← Geri</Text>
-        </TouchableOpacity>
         <View style={styles.headerText}>
-          <Text style={styles.title}>Kendini Yönetme Stratejileri</Text>
+          <HeaderTitle>Kendini Yönetme Stratejileri</HeaderTitle>
         </View>
       </View>
 

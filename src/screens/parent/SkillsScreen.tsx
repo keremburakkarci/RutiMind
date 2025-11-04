@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import GlobalTopActions from '../../components/GlobalTopActions';
+import HeaderTitle from '../../components/SharedHeader';
 import { useTranslation } from 'react-i18next';
 import DraggableFlatList, {
   RenderItemParams,
@@ -422,7 +423,7 @@ const SkillsScreen: React.FC = () => {
         {/* Left Panel - Skill Categories */}
         <View style={styles.leftPanel}>
           <View style={styles.leftPanelHeaderRow}>
-            <Text style={styles.panelTitle}>Beceri Listesi</Text>
+            <HeaderTitle style={{ fontSize: 20 }}>Beceri Listesi</HeaderTitle>
             <TouchableOpacity
               style={styles.addButton}
               onPress={() => {

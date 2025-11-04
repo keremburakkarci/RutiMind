@@ -1,5 +1,6 @@
 import React from 'react';
 import { SafeAreaView, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import HeaderTitle from '../../components/SharedHeader';
 import { useNavigation } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 
@@ -15,7 +16,7 @@ const ParentHome: React.FC = () => {
       
 
       <View style={styles.header}>
-        <Text style={styles.title}>{t('parent.homeTitle', 'Veli Paneli')}</Text>
+        <HeaderTitle>{t('parent.homeTitle', 'Veli Paneli')}</HeaderTitle>
         <Text style={styles.subtitle}>{t('parent.homeSubtitle', 'Becerileri ve pekiştireçleri yönetin, gelişimi takip edin')}</Text>
       </View>
 

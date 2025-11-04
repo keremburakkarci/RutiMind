@@ -1,8 +1,10 @@
 import React from 'react';
 import { SafeAreaView, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import HeaderTitle from '../components/SharedHeader';
 import { useNavigation } from '@react-navigation/native';
 import type { RootStackNavigationProp } from '../navigation/types';
-import BackButton from '../components/BackButton';
+// BackButton intentionally not used here; GlobalTopActions provides back navigation
+// import BackButton from '../components/BackButton';
 import Svg, { Rect, Circle, Path } from 'react-native-svg';
 
 const EducationScreen: React.FC = () => {
@@ -11,9 +13,8 @@ const EducationScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <BackButton onPress={() => navigation.goBack()} label="Geri" accessibilityLabel="go-back" />
         <View style={styles.headerText}>
-          <Text style={styles.title}>Eğitim İçerikleri</Text>
+          <HeaderTitle style={{ marginBottom: 6 }}>Eğitim İçerikleri</HeaderTitle>
           <Text style={styles.subtitle}>Kendini yönetme stratejileri ve uygulamanın kullanımına yönelik eğitici videolar aşağıdadır</Text>
         </View>
       </View>

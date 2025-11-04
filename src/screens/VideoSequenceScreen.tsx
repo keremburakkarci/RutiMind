@@ -1,14 +1,13 @@
 import React, { useEffect } from 'react';
-import { SafeAreaView, View, Text, ScrollView, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { RouteProp, useRoute, useNavigation } from '@react-navigation/native';
-import type { RootStackParamList, RootStackNavigationProp } from '../navigation/types';
+import { SafeAreaView, View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
+import { RouteProp, useRoute } from '@react-navigation/native';
+import type { RootStackParamList } from '../navigation/types';
 import VideoEmbed from '../components/VideoEmbed';
 
 type VideoSequenceRouteProp = RouteProp<RootStackParamList, 'VideoSequence'>;
 
 const VideoSequenceScreen: React.FC = () => {
   const route = useRoute<VideoSequenceRouteProp>();
-  const navigation = useNavigation<RootStackNavigationProp>();
   const { screenTitle, steps } = route.params;
 
   // Ensure page is scrollable on web (some global styles may set overflow: hidden)
@@ -30,9 +29,6 @@ const VideoSequenceScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.navigate('Education' as never)}>
-          <Text style={styles.back}>← Geri</Text>
-        </TouchableOpacity>
         <View style={styles.headerText}>
           <Text style={styles.title}>{screenTitle}</Text>
         </View>

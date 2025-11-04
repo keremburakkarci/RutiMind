@@ -18,6 +18,7 @@ import { auth, googleProvider } from '../../../firebaseConfig';
 import { useAuthStore } from '../../store/authStore';
 import { hasPIN } from '../../utils/pinAuth';
 import Svg, { Path } from 'react-native-svg';
+import { MainMenuStyles } from '../../components/SharedHeader';
 
 const GoogleSignInScreen: React.FC = () => {
   const navigation = useNavigation<AuthScreenNavigationProp>();
@@ -72,14 +73,14 @@ const GoogleSignInScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Ana Menü button - centered at top */}
+      {/* Ana Menü button - top aligned to match GlobalTopActions */}
       <View style={styles.topBar}>
         <TouchableOpacity
           accessibilityLabel="go-to-main"
           onPress={() => navigation.navigate('Main')}
-          style={styles.mainMenuButton}
+          style={[MainMenuStyles.mainMenuButton, styles.mainMenuButton]}
         >
-          <Text style={styles.mainMenuText}>Ana Menü</Text>
+          <Text style={MainMenuStyles.mainMenuText}>Ana Menü</Text>
         </TouchableOpacity>
       </View>
 
