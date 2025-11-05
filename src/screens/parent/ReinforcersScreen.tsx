@@ -41,7 +41,12 @@ type Reinforcer = {
 const MAX_SLOTS = 10;
 
 const reinforcerSchema = z.object({
-  name: z.string().min(1, 'Name required'),
+  // Require a non-empty name, disallow names that are only whitespace,
+  // and disallow any space characters in the token (project requirement).
+  name: z.string()
+    .min(1, 'Pekiştireç adı girmeyi unutmayın!')
+    .refine(v => v.trim().length > 0, { message: 'Pekiştireç adı girmeyi unutmayın!' })
+  .refine(v => v.trim().length > 0, { message: 'Düzgün bir pekiştireç adı giriniz!' }),
   imageUri: z.string().optional(),
 });
 
@@ -259,6 +264,14 @@ const ReinforcersScreen: React.FC = () => {
   // Add new reinforcer
   const onAddReinforcer = async (data: ReinforcerFormData) => {
     try {
+      // Validate name presence (extra guard in addition to zod) — do not allow empty names
+      if (!data.name || !data.name.trim()) {
+        Alert.alert(t('errors.validation'), t('reinforcers.nameRequired') || 'Please enter a name');
+        return;
+      }
+
+      // Disallow any space characters in the name (single token only)
+        // Multi-word names are allowed; whitespace-only names are prevented by the zod schema.
       // Ensure a valid categoryId is set for new reinforcers (fallback to first category)
       const categoryIdToUse = newReinforcerCategory || reinforcerCategories?.[0]?.id || undefined;
 
@@ -500,9 +513,14 @@ const ReinforcersScreen: React.FC = () => {
           <View style={styles.leftPanelHeaderRow}>
               <HeaderTitle style={{ fontSize: 20 }}>{t('reinforcers.library')}</HeaderTitle>
             <TouchableOpacity
-              style={styles.addButton}
-              onPress={() => setModalVisible(true)}
-            >
+                style={styles.addButton}
+                onPress={() => {
+                  // Ensure the form is reset when opening the modal so previous errors/values don't persist
+                  reset();
+                  setNewReinforcerCategory(reinforcerCategories?.[0]?.id || null);
+                  setModalVisible(true);
+                }}
+              >
               <Text style={styles.addButtonText}>+</Text>
             </TouchableOpacity>
           </View>
@@ -760,7 +778,7 @@ const ReinforcersScreen: React.FC = () => {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>{t('reinforcers.addNew')}</Text>
-              <TouchableOpacity onPress={() => setModalVisible(false)}>
+              <TouchableOpacity onPress={() => { setModalVisible(false); reset(); setNewReinforcerCategory(reinforcerCategories?.[0]?.id || null); }}>
                 <Text style={styles.modalCloseButton}>✕</Text>
               </TouchableOpacity>
             </View>

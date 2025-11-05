@@ -105,6 +105,7 @@ const SkillsScreen: React.FC = () => {
   const [addModalVisible, setAddModalVisible] = useState(false);
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillCategory, setNewSkillCategory] = useState<string | null>(skillCategories?.[0]?.id || null);
+  const [newSkillError, setNewSkillError] = useState<string | null>(null);
 
   // Duplicate-add confirmation modal (when same skill is already selected)
   const [duplicateModalVisible, setDuplicateModalVisible] = useState(false);
@@ -261,13 +262,30 @@ const SkillsScreen: React.FC = () => {
 
   // Handle add from modal
   const handleAddFromModal = () => {
-    if (!newSkillName.trim() || !newSkillCategory) {
-      Alert.alert(t('errors.validation'), t('skills.nameRequired') || 'İsim girin ve kategori seçin');
+    // Distinguish between completely empty and whitespace-only input so we can
+    // show a clearer inline message for the latter (e.g. user typed only spaces).
+    if (!newSkillName || newSkillName.length === 0) {
+      // If the translation key is missing, use the Turkish fallback via defaultValue
+      setNewSkillError(t('skills.nameRequired', { defaultValue: 'Beceri adı girmeyi unutmayın!' }));
+      return;
+    }
+
+    // If the user entered only spaces (one or more), show the requested message
+    // exactly as asked by the user.
+    if (newSkillName.trim().length === 0) {
+      setNewSkillError('Düzgün bir beceri adı giriniz!');
+      return;
+    }
+
+    if (!newSkillCategory) {
+      setNewSkillError(t('skills.categoryRequired', { defaultValue: 'Kategori seçin' }));
       return;
     }
 
     // Normalize input once
     const normalized = (newSkillName || '').trim();
+
+    // Allow multi-word skill names; whitespace-only names are rejected above via trim check.
 
     // Add the new skill into the library (categories state) — do NOT add to selectedSkills
     setCategories(prev => {
@@ -298,6 +316,7 @@ const SkillsScreen: React.FC = () => {
     setSearchQuery('');
     setNewSkillName('');
     setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null);
+    setNewSkillError(null);
     setAddModalVisible(false);
   };
 
@@ -427,8 +446,10 @@ const SkillsScreen: React.FC = () => {
             <TouchableOpacity
               style={styles.addButton}
               onPress={() => {
-                // Default the modal category to the first in the ordered list so ordering matches the left list
+                // Reset modal fields and error when opening so previous values/errors don't persist
+                setNewSkillName('');
                 setNewSkillCategory(categoriesOrdered?.[0]?.id || newSkillCategory);
+                setNewSkillError(null);
                 setAddModalVisible(true);
               }}
             >
@@ -582,25 +603,26 @@ const SkillsScreen: React.FC = () => {
         visible={addModalVisible}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => setAddModalVisible(false)}
+        onRequestClose={() => { setAddModalVisible(false); setNewSkillName(''); setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null); setNewSkillError(null); }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Yeni Beceri Ekle</Text>
-              <TouchableOpacity onPress={() => setAddModalVisible(false)}>
+              <TouchableOpacity onPress={() => { setAddModalVisible(false); setNewSkillName(''); setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null); setNewSkillError(null); }}>
                 <Text style={styles.modalCloseButton}>✕</Text>
               </TouchableOpacity>
             </View>
 
             {/* Name Input */}
             <TextInput
-              style={styles.input}
+              style={[styles.input, newSkillError && styles.inputError]}
               placeholder="Beceri adı girin..."
               placeholderTextColor="#666"
               value={newSkillName}
-              onChangeText={setNewSkillName}
+              onChangeText={(v) => { setNewSkillName(v); if (newSkillError) setNewSkillError(null); }}
             />
+            {newSkillError ? <Text style={styles.errorText}>{newSkillError}</Text> : null}
 
             {/* Category selection */}
             <Text style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 8 }}>Kategori seçin:</Text>
@@ -1101,6 +1123,11 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     borderWidth: 1,
     borderColor: '#3D3D3D',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#e74c3c',
+    marginBottom: 8,
   },
   submitButton: {
     width: '100%',
