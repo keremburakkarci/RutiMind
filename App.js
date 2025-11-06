@@ -148,7 +148,7 @@ export default function App() {
           const ok2 = (globalThis).confirm('Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.');
           console.debug('[App::StudentScreen] web confirm2', ok2);
           if (!ok2) return;
-          await logout();
+          // Do not logout the teacher when returning to Main; only reset UI to Main
           setCurrentScreen('main');
           return;
         }
@@ -165,7 +165,7 @@ export default function App() {
                 'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
                 [
                   { text: 'Hayır', style: 'cancel', onPress: () => console.debug('[App::StudentScreen] second cancel') },
-                  { text: 'Evet', onPress: async () => { console.debug('[App::StudentScreen] second confirm - logging out'); await logout(); setCurrentScreen('main'); } }
+                  { text: 'Evet', onPress: async () => { console.debug('[App::StudentScreen] second confirm - navigating to Main'); setCurrentScreen('main'); } }
                 ],
                 { cancelable: false }
               );
