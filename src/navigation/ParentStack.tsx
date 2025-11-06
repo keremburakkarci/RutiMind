@@ -15,6 +15,7 @@ const Stack = createStackNavigator<ParentStackParamList>();
 const ParentStack: React.FC = () => {
   return (
     <Stack.Navigator
+      initialRouteName="ParentTabs"
       screenOptions={{ headerShown: false }}
     >
       <Stack.Screen name="ParentHome" component={ParentHome} />

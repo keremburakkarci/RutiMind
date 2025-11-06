@@ -12,8 +12,13 @@ import {
   Image,
   Alert,
   ActivityIndicator,
+  Modal,
+  Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import GlobalTopActions from '../../components/GlobalTopActions';
+import HeaderTitle from '../../components/SharedHeader';
 import { useTranslation } from 'react-i18next';
 import DraggableFlatList, {
   RenderItemParams,
@@ -24,10 +29,27 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
 import { skillCategories, MAX_SELECTED_SKILLS } from '../../../data/skillsData.js';
 import { useSkillsStore } from '../../store/skillsStore';
+import { useAuthStore } from '../../store/authStore';
 import type { SelectedSkill } from '../../types';
 
 const SkillsScreen: React.FC = () => {
   const { t } = useTranslation();
+  // Safe Haptics wrapper to guard web platform
+  const safeHaptic = async (type: 'impact' | 'notification' = 'impact', style?: any) => {
+    try {
+      if (Platform.OS === 'web') return;
+      if (type === 'impact' && (Haptics as any)?.impactAsync) {
+        await (Haptics as any).impactAsync(style || Haptics.ImpactFeedbackStyle.Light);
+        return;
+      }
+      if (type === 'notification' && (Haptics as any)?.notificationAsync) {
+        await (Haptics as any).notificationAsync(style);
+        return;
+      }
+    } catch (e) {
+      console.debug('[SkillsScreen] Haptics error', e);
+    }
+  };
   
   // Zustand store
   const { 
@@ -38,22 +60,80 @@ const SkillsScreen: React.FC = () => {
     updateSkill,
   } = useSkillsStore();
 
+  // Local mutable copy of categories so we can add new skills into the library
+  const [categories, setCategories] = useState(() =>
+    skillCategories.map(cat => ({ ...cat, skills: Array.isArray(cat.skills) ? [...cat.skills] : [] }))
+  );
+
+  // Load saved categories from localStorage on web so newly added skills persist across reloads
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    try {
+      const raw = (globalThis as any)?.localStorage?.getItem('skills_web');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return;
+      // Normalize parsed structure: ensure each category has skills array
+      const normalized = parsed.map((c: any) => ({
+        ...c,
+        skills: Array.isArray(c?.skills) ? c.skills.filter((s: any) => typeof s === 'string') : [],
+      }));
+      setCategories(normalized);
+      console.log('[SkillsScreen] loaded categories from localStorage, count:', normalized.length);
+    } catch (e) {
+      console.warn('[SkillsScreen] Failed to load categories from localStorage', e);
+    }
+  }, []);
+
+  // Persist categories to localStorage on web when categories change
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    try {
+      const toSave = categories.map(c => ({ id: c.id, title: c.title, icon: c.icon, color: c.color, skills: c.skills }));
+      (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('skills_web', JSON.stringify(toSave));
+    } catch (e) {
+      console.warn('[SkillsScreen] Failed to persist categories to localStorage', e);
+    }
+  }, [categories]);
+
   // Local state
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [openCategories, setOpenCategories] = useState<string[]>(
+    skillCategories.map(c => c.id)
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadingSkillId, setUploadingSkillId] = useState<string | null>(null);
 
-  // Filter skills by category and search
+  // Add modal state for creating a new skill
+  const [addModalVisible, setAddModalVisible] = useState(false);
+  const [newSkillName, setNewSkillName] = useState('');
+  const [newSkillCategory, setNewSkillCategory] = useState<string | null>(skillCategories?.[0]?.id || null);
+  const [newSkillError, setNewSkillError] = useState<string | null>(null);
+
+  // Duplicate-add confirmation modal (when same skill is already selected)
+  const [duplicateModalVisible, setDuplicateModalVisible] = useState(false);
+  const [duplicateTarget, setDuplicateTarget] = useState<{ categoryId: string; skillName: string } | null>(null);
+
+  // Delete confirmation modal state (only for library items, not selected skills)
+  const [deleteLibraryModalVisible, setDeleteLibraryModalVisible] = useState(false);
+  const [deleteLibraryTarget, setDeleteLibraryTarget] = useState<{ categoryId: string; skillName: string } | null>(null);
+
+  // Filter skills by search only
   const filteredCategories = useMemo(() => {
-    return skillCategories.map(category => ({
-      ...category,
-      skills: category.skills.filter(skill =>
-        skill.toLowerCase().includes(searchQuery.toLowerCase())
-      ),
-    })).filter(category => 
-      !selectedCategory || category.id === selectedCategory
-    );
-  }, [searchQuery, selectedCategory]);
+    // Sort categories alphabetically, then filter & sort their skills
+    return [...categories]
+      .sort((a, b) => a.title.localeCompare(b.title, 'tr', { sensitivity: 'base' }))
+      .map(category => ({
+        ...category,
+        skills: (category.skills || [])
+          .filter(skill => skill.toLowerCase().includes(searchQuery.toLowerCase()))
+          .sort((a, b) => a.localeCompare(b, 'tr', { sensitivity: 'base' })),
+      }));
+  }, [searchQuery, categories]);
+
+  // Categories ordered for display (used in modal and elsewhere)
+  const categoriesOrdered = useMemo(() => {
+    return [...categories].sort((a, b) => a.title.localeCompare(b.title, 'tr', { sensitivity: 'base' }));
+  }, [categories]);
 
   // Calculate total duration
   const totalDuration = useMemo(() => {
@@ -86,8 +166,8 @@ const SkillsScreen: React.FC = () => {
           { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
         );
 
-        updateSkill(skillId, { imageUri: manipResult.uri });
-        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  updateSkill(skillId, { imageUri: manipResult.uri });
+  await safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
         setUploadingSkillId(null);
       }
     } catch (error) {
@@ -104,6 +184,15 @@ const SkillsScreen: React.FC = () => {
       return;
     }
 
+    // If this skill name is already selected, ask for confirmation before adding
+    const alreadySelected = selectedSkills.some(s => s.skillName === skillName);
+    if (alreadySelected) {
+      console.debug('[SkillsScreen] Duplicate add detected for skill:', skillName);
+      setDuplicateTarget({ categoryId, skillName });
+      setDuplicateModalVisible(true);
+      return;
+    }
+
     const skillId = `${categoryId}-${skillName}-${Date.now()}`;
     const newSkill: SelectedSkill = {
       skillId,
@@ -114,33 +203,174 @@ const SkillsScreen: React.FC = () => {
     };
 
     addSkill(newSkill);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    safeHaptic('impact', Haptics.ImpactFeedbackStyle.Medium);
   };
 
-  // Remove skill
+  // Confirm adding a duplicate (user chose to proceed)
+  const confirmDuplicateAdd = () => {
+    if (!duplicateTarget) return;
+    if (selectedSkills.length >= MAX_SELECTED_SKILLS) {
+      Alert.alert(t('errors.title'), t('skills.maxSkillsReached'));
+      setDuplicateModalVisible(false);
+      setDuplicateTarget(null);
+      return;
+    }
+
+    const { categoryId, skillName } = duplicateTarget;
+    const skillId = `${categoryId}-${skillName}-${Date.now()}`;
+    const newSkill: SelectedSkill = {
+      skillId,
+      skillName,
+      order: selectedSkills.length + 1,
+      duration: 5,
+      imageUri: '',
+    };
+
+    console.debug('[SkillsScreen] User confirmed duplicate add for skill:', skillName);
+    addSkill(newSkill);
+    safeHaptic('impact', Haptics.ImpactFeedbackStyle.Medium);
+    setDuplicateModalVisible(false);
+    setDuplicateTarget(null);
+  };
+
+  // Remove skill from selected (right panel) - direct removal, no modal
   const handleRemoveSkill = (skillId: string) => {
     removeSkill(skillId);
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    safeHaptic('impact', Haptics.ImpactFeedbackStyle.Light);
   };
 
-  // Save validation
-  const onSave = () => {
+  // Confirm delete from library (left panel) - open modal
+  const confirmDeleteFromLibrary = (categoryId: string, skillName: string) => {
+    setDeleteLibraryTarget({ categoryId, skillName });
+    setDeleteLibraryModalVisible(true);
+  };
+
+  // Perform library skill deletion
+  const performDeleteFromLibrary = () => {
+    if (!deleteLibraryTarget) return;
+    const { categoryId, skillName } = deleteLibraryTarget;
+    
+    setCategories(prev => prev.map(cat => {
+      if (cat.id === categoryId) {
+        return { ...cat, skills: cat.skills.filter(s => s !== skillName) };
+      }
+      return cat;
+    }));
+
+    setDeleteLibraryModalVisible(false);
+    setDeleteLibraryTarget(null);
+    safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
+  };
+
+  // Handle add from modal
+  const handleAddFromModal = () => {
+    // Distinguish between completely empty and whitespace-only input so we can
+    // show a clearer inline message for the latter (e.g. user typed only spaces).
+    if (!newSkillName || newSkillName.length === 0) {
+      // If the translation key is missing, use the Turkish fallback via defaultValue
+      setNewSkillError(t('skills.nameRequired', { defaultValue: 'Beceri adı girmeyi unutmayın!' }));
+      return;
+    }
+
+    // If the user entered only spaces (one or more), show the requested message
+    // exactly as asked by the user.
+    if (newSkillName.trim().length === 0) {
+      setNewSkillError('Düzgün bir beceri adı giriniz!');
+      return;
+    }
+
+    if (!newSkillCategory) {
+      setNewSkillError(t('skills.categoryRequired', { defaultValue: 'Kategori seçin' }));
+      return;
+    }
+
+    // Normalize input once
+    const normalized = (newSkillName || '').trim();
+
+    // Allow multi-word skill names; whitespace-only names are rejected above via trim check.
+
+    // Add the new skill into the library (categories state) — do NOT add to selectedSkills
+    setCategories(prev => {
+      let added = false;
+      const next = prev.map(cat => {
+        if (cat.id === newSkillCategory) {
+          // Avoid duplicates
+          if (!cat.skills.includes(normalized)) {
+            added = true;
+            return { ...cat, skills: [...cat.skills, normalized] };
+          }
+        }
+        return cat;
+      });
+
+      // If the category id wasn't found for some reason, fallback to first category
+      if (!added && next.length > 0) {
+        next[0] = { ...next[0], skills: [...(next[0].skills || []), normalized] };
+      }
+
+      return next;
+    });
+
+    // Ensure the category is open so user can see the newly added skill
+    setOpenCategories(prev => prev.includes(newSkillCategory) ? prev : [...prev, newSkillCategory]);
+
+    // Clear search so the added item is visible and reset modal state
+    setSearchQuery('');
+    setNewSkillName('');
+    setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null);
+    setNewSkillError(null);
+    setAddModalVisible(false);
+  };
+
+  // Save validation - Skills are auto-saved via store subscription
+  // This button validates and confirms to user that data is ready for student mode
+  const onSave = async () => {
+    console.log('[SkillsScreen] onSave called');
+    console.log('[SkillsScreen] Selected skills count:', selectedSkills.length);
+    
+    if (selectedSkills.length === 0) {
+      Alert.alert(
+        t('errors.validation', { defaultValue: 'Uyarı' }),
+        'Henüz beceri seçmediniz.'
+      );
+      return;
+    }
+    
     // Check all skills have images
     const skillsWithoutImage = selectedSkills.filter((s: SelectedSkill) => !s.imageUri);
     if (skillsWithoutImage.length > 0) {
-      Alert.alert(t('errors.validation'), t('skills.errors.missingImages'));
+      Alert.alert(
+        t('errors.validation', { defaultValue: 'Eksik Bilgi' }), 
+        t('skills.errors.missingImages', { defaultValue: 'Lütfen tüm becerilere resim ekleyin.' })
+      );
       return;
     }
 
     // Check total duration
     const total = selectedSkills.reduce((sum: number, s: SelectedSkill) => sum + s.duration, 0);
     if (total > 120) {
-      Alert.alert(t('errors.validation'), t('skills.errors.totalDurationExceeded'));
+      Alert.alert(
+        t('errors.validation', { defaultValue: 'Uyarı' }), 
+        t('skills.errors.totalDurationExceeded', { defaultValue: 'Toplam süre 120 dakikayı geçemez.' })
+      );
       return;
     }
 
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert(t('success.title'), t('skills.saved'));
+    const uid = useAuthStore.getState().user?.uid;
+    if (!uid) {
+      Alert.alert(
+        t('errors.title', { defaultValue: 'Hata' }),
+        'Lütfen önce giriş yapın.'
+      );
+      return;
+    }
+
+    // Data is already auto-saved via store subscription, just show confirmation
+    safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
+    Alert.alert(
+      t('success.title', { defaultValue: 'Hazır!' }), 
+      `Seçimleriniz otomatik olarak hesabınıza kaydedildi.\n\n${selectedSkills.length} beceri seçili.\nToplam süre: ${total} dakika.\n\nBu beceriler öğrenci ekranında gösterilecektir.`
+    );
   };
 
   // Render Wait Time row (fixed, not draggable)
@@ -234,65 +464,146 @@ const SkillsScreen: React.FC = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.title}>{t('skills.title')}</Text>
-          <Text style={styles.subtitle}>
-            {selectedSkills.length}/{MAX_SELECTED_SKILLS} {t('skills.selected')} • {totalDuration} {t('skills.minutes')}
-          </Text>
-        </View>
+        <LinearGradient
+          colors={['#0a0a0a', '#1a1a2e', '#16213e']}
+          style={styles.gradientBackground}
+        >
+          {/* Global top actions (main menu center, user right) */}
+    <GlobalTopActions showBack />
 
-      {/* Split View */}
-      <View style={styles.splitView}>
+          {/* Spacer to avoid overlapping with absolute top bar */}
+          <View style={styles.headerSpacer} />
+
+        {/* Split View */}
+        <View style={styles.splitView}>
         {/* Left Panel - Skill Categories */}
         <View style={styles.leftPanel}>
-          <TextInput
-            style={styles.searchInput}
-            placeholder={t('skills.search')}
-            placeholderTextColor="#666"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
+          <View style={styles.panelHeader}>
+            <View style={styles.panelHeaderContent}>
+              <View style={styles.panelIconWrapper}>
+                <Text style={styles.panelIcon}>📚</Text>
+              </View>
+              <Text style={styles.panelHeaderTitle}>Beceri Listesi</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.addButton}
+              onPress={() => {
+                // Reset modal fields and error when opening so previous values/errors don't persist
+                setNewSkillName('');
+                setNewSkillCategory(categoriesOrdered?.[0]?.id || newSkillCategory);
+                setNewSkillError(null);
+                setAddModalVisible(true);
+              }}
+            >
+              <Text style={styles.addButtonText}>+</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Search Box */}
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder={t('skills.search')}
+              placeholderTextColor="#9CA3AF"
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity
+                style={styles.searchClearButton}
+                onPress={() => setSearchQuery('')}
+              >
+                <Text style={styles.searchClearText}>✕</Text>
+              </TouchableOpacity>
+            )}
+          </View>
 
           <ScrollView style={styles.categoriesList}>
-            {filteredCategories.map(category => (
-              <View key={category.id} style={styles.categorySection}>
-                <TouchableOpacity
-                  style={[
-                    styles.categoryHeader,
-                    { backgroundColor: category.color + '20' }
-                  ]}
-                  onPress={() => setSelectedCategory(
-                    selectedCategory === category.id ? null : category.id
-                  )}
-                >
-                  <Text style={styles.categoryIcon}>{category.icon}</Text>
-                  <Text style={styles.categoryTitle}>{category.title}</Text>
-                </TouchableOpacity>
+            {filteredCategories.map(category => {
+              const isOpen = openCategories.includes(category.id);
+              
+              return (
+                <View key={category.id} style={styles.categorySection}>
+                  <TouchableOpacity
+                    style={[
+                      styles.categoryHeader,
+                      { backgroundColor: category.color + '20' }
+                    ]}
+                    onPress={() => {
+                      setOpenCategories(prev => 
+                        prev.includes(category.id) 
+                          ? prev.filter(x => x !== category.id) 
+                          : [...prev, category.id]
+                      );
+                      safeHaptic('impact', Haptics.ImpactFeedbackStyle.Light);
+                    }}
+                  >
+                    <Text style={styles.categoryIcon}>{category.icon}</Text>
+                    <Text style={styles.categoryTitle}>{category.title} <Text style={styles.categoryCount}>({category.skills.length})</Text></Text>
+                    <View style={styles.expandButton}>
+                      <Text style={styles.expandButtonText}>{isOpen ? '−' : '+'}</Text>
+                    </View>
+                  </TouchableOpacity>
 
-                {(!selectedCategory || selectedCategory === category.id) && (
-                  <View style={styles.skillsList}>
-                    {category.skills.map((skill, index) => (
-                      <TouchableOpacity
-                        key={`${category.id}-${index}`}
-                        style={styles.skillItem}
-                        onPress={() => handleAddSkill(category.id, skill)}
-                      >
-                        <Text style={styles.skillItemText}>{skill}</Text>
-                        <Text style={styles.addIcon}>+</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
-              </View>
-            ))}
+                  {isOpen && (
+                    <View style={styles.skillsList}>
+                      {category.skills.map((skill, index) => {
+                        // Determine if this skill is part of the original default list for this category
+                        const originalCategory = skillCategories.find((c) => c.id === category.id);
+                        const isDefaultSkill = !!originalCategory && Array.isArray(originalCategory.skills) && originalCategory.skills.includes(skill);
+
+                        return (
+                          <View key={`${category.id}-${index}`} style={styles.skillItem}>
+                            <TouchableOpacity
+                              style={styles.skillItemClickable}
+                              onPress={() => handleAddSkill(category.id, skill)}
+                              activeOpacity={0.7}
+                            >
+                              <Text style={styles.skillItemText}>{skill}</Text>
+                              <Text style={styles.addIcon}>+</Text>
+                            </TouchableOpacity>
+
+                            {/* Show delete button only for user-added (non-default) skills */}
+                            {!isDefaultSkill && (
+                              <TouchableOpacity
+                                style={styles.deleteLibraryButton}
+                                onPress={(e) => {
+                                  if (Platform.OS === 'web') {
+                                    e?.stopPropagation?.();
+                                  }
+                                  confirmDeleteFromLibrary(category.id, skill);
+                                }}
+                                activeOpacity={0.7}
+                                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                              >
+                                <Text style={styles.deleteButtonText}>🗑️</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        );
+                      })}
+                    </View>
+                  )}
+                </View>
+              );
+            })}
           </ScrollView>
         </View>
 
         {/* Right Panel - Selected Skills */}
         <View style={styles.rightPanel}>
-          <View style={styles.rightPanelHeader}>
-            <Text style={styles.rightPanelTitle}>{t('skills.selectedSkills')}</Text>
+          <View style={styles.panelHeader}>
+            <View style={styles.panelHeaderContent}>
+              <View style={styles.panelIconWrapper}>
+                <Text style={styles.panelIcon}>✓</Text>
+              </View>
+              <Text style={styles.panelHeaderTitle}>{t('skills.selectedSkills')}</Text>
+            </View>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>
+                {selectedSkills.length}/{MAX_SELECTED_SKILLS}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.selectedSkillsList}>
@@ -307,20 +618,18 @@ const SkillsScreen: React.FC = () => {
                 </Text>
               </View>
             ) : (
-              <GestureHandlerRootView style={{ flex: 1 }}>
-                <DraggableFlatList
-                  data={selectedSkills}
-                  onDragEnd={({ from, to }) => {
-                    reorderSkills(from, to);
-                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  }}
-                  keyExtractor={(item) => item.skillId}
-                  renderItem={renderSkillItem}
-                  contentContainerStyle={styles.draggableListContent}
-                  activationDistance={10}
-                  dragItemOverflow={true}
-                />
-              </GestureHandlerRootView>
+              <DraggableFlatList
+                data={selectedSkills}
+                onDragEnd={({ from, to }) => {
+                  reorderSkills(from, to);
+                  safeHaptic('impact', Haptics.ImpactFeedbackStyle.Light);
+                }}
+                keyExtractor={(item) => item.skillId}
+                renderItem={renderSkillItem}
+                contentContainerStyle={styles.draggableListContent}
+                activationDistance={10}
+                dragItemOverflow={true}
+              />
             )}
           </View>
 
@@ -333,10 +642,146 @@ const SkillsScreen: React.FC = () => {
             onPress={onSave}
             disabled={selectedSkills.length === 0}
           >
-            <Text style={styles.saveButtonText}>{t('skills.save')}</Text>
+            <Text style={styles.saveButtonText}>
+              {t('skills.save', { defaultValue: 'Öğrenci İçin Hazır ✓' })}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Add Skill Modal */}
+      <Modal
+        visible={addModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => { setAddModalVisible(false); setNewSkillName(''); setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null); setNewSkillError(null); }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Yeni Beceri Ekle</Text>
+              <TouchableOpacity onPress={() => { setAddModalVisible(false); setNewSkillName(''); setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null); setNewSkillError(null); }}>
+                <Text style={styles.modalCloseButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Name Input */}
+            <TextInput
+              style={[styles.input, newSkillError && styles.inputError]}
+              placeholder="Beceri adı girin..."
+              placeholderTextColor="#666"
+              value={newSkillName}
+              onChangeText={(v) => { setNewSkillName(v); if (newSkillError) setNewSkillError(null); }}
+            />
+            {newSkillError ? <Text style={styles.errorText}>{newSkillError}</Text> : null}
+
+            {/* Category selection */}
+            <Text style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 8 }}>Kategori seçin:</Text>
+            <ScrollView style={{ maxHeight: 180, marginBottom: 12 }}>
+              {categoriesOrdered.map(cat => (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[
+                    styles.skillItem,
+                    { marginVertical: 4, backgroundColor: newSkillCategory === cat.id ? '#333' : '#2D2D2D' }
+                  ]}
+                  onPress={() => setNewSkillCategory(cat.id)}
+                >
+                  <Text style={styles.skillItemText}>{cat.title}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleAddFromModal}
+            >
+              <Text style={styles.submitButtonText}>Ekle</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+      {/* Duplicate-add Confirmation Modal (when a selected skill is added again) */}
+      <Modal
+        visible={duplicateModalVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => { setDuplicateModalVisible(false); setDuplicateTarget(null); }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxWidth: 420 }]}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Beceri Zaten Seçili</Text>
+              <TouchableOpacity onPress={() => { setDuplicateModalVisible(false); setDuplicateTarget(null); }}>
+                <Text style={styles.modalCloseButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ color: '#ddd', marginBottom: 12 }}>Bu beceri zaten seçili. Yine de eklemek istiyor musunuz?</Text>
+            {duplicateTarget?.skillName ? (
+              <Text style={{ color: '#fff', fontWeight: '600', marginBottom: 18 }}>{duplicateTarget.skillName}</Text>
+            ) : null}
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: '#3D3D3D', flex: 1, marginRight: 8 }]}
+                onPress={() => { setDuplicateModalVisible(false); setDuplicateTarget(null); }}
+              >
+                <Text style={styles.submitButtonText}>İptal</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: '#4285F4', flex: 1, marginLeft: 8 }]}
+                onPress={confirmDuplicateAdd}
+              >
+                <Text style={styles.submitButtonText}>Ekle</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete Confirmation Modal (for library items only) */}
+      <Modal
+        visible={deleteLibraryModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => { setDeleteLibraryModalVisible(false); setDeleteLibraryTarget(null); }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Beceri Sil</Text>
+              <TouchableOpacity onPress={() => { setDeleteLibraryModalVisible(false); setDeleteLibraryTarget(null); }}>
+                <Text style={styles.modalCloseButton}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={{ color: '#ddd', marginBottom: 12 }}>Bu beceriyi listeden silmek istediğinizden emin misiniz?</Text>
+            {deleteLibraryTarget?.skillName ? (
+              <Text style={{ color: '#fff', fontWeight: '600', marginBottom: 18 }}>{deleteLibraryTarget.skillName}</Text>
+            ) : null}
+
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: '#3D3D3D', flex: 1, marginRight: 8 }]}
+                onPress={() => { setDeleteLibraryModalVisible(false); setDeleteLibraryTarget(null); }}
+              >
+                <Text style={styles.submitButtonText}>İptal</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.submitButton, { backgroundColor: '#e74c3c', flex: 1, marginLeft: 8 }]}
+                onPress={performDeleteFromLibrary}
+              >
+                <Text style={styles.submitButtonText}>Sil</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      </LinearGradient>
     </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -345,22 +790,101 @@ const SkillsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#000000',
+  },
+  gradientBackground: {
+    flex: 1,
   },
   header: {
     padding: 20,
     borderBottomWidth: 1,
     borderBottomColor: '#3D3D3D',
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-    marginBottom: 4,
+  headerSpacer: {
+    height: 96,
   },
-  subtitle: {
-    fontSize: 14,
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    paddingTop: 20,
+    borderBottomWidth: 2,
+    borderBottomColor: 'rgba(100, 126, 234, 0.3)',
+    backgroundColor: 'rgba(13, 27, 42, 0.5)',
+  },
+  panelHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  panelIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(100, 126, 234, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.3)',
+  },
+  panelIcon: {
+    fontSize: 20,
+  },
+  panelHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  countBadge: {
+    backgroundColor: 'rgba(100, 126, 234, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.3)',
+  },
+  countBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#667eea',
+  },
+  panelTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    marginTop: 8,
+  },
+  leftPanelHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  searchContainer: {
+    marginHorizontal: 16,
+    marginVertical: 12,
+    position: 'relative',
+  },
+  searchClearButton: {
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#3D3D3D',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  searchClearText: {
     color: '#9CA3AF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   splitView: {
     flex: 1,
@@ -369,16 +893,18 @@ const styles = StyleSheet.create({
   leftPanel: {
     flex: 1,
     borderRightWidth: 1,
-    borderRightColor: '#3D3D3D',
-    backgroundColor: '#1E1E1E',
+    borderRightColor: 'rgba(100, 126, 234, 0.2)',
+    backgroundColor: 'rgba(13, 27, 42, 0.4)',
   },
   searchInput: {
-    margin: 16,
-    padding: 12,
-    backgroundColor: '#2D2D2D',
-    borderRadius: 8,
+    backgroundColor: 'rgba(13, 27, 42, 0.6)',
     color: '#FFFFFF',
     fontSize: 14,
+    padding: 12,
+    paddingRight: 40,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.3)',
   },
   categoriesList: {
     flex: 1,
@@ -390,9 +916,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    marginHorizontal: 12,
+    marginHorizontal: 16,
     marginVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
   },
   categoryIcon: {
     fontSize: 24,
@@ -404,8 +932,53 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     flex: 1,
   },
+  categoryCount: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    marginLeft: 8,
+  },
+  expandButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: 'rgba(100, 126, 234, 0.3)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.4)',
+  },
+  expandButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  addButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(100, 126, 234, 0.3)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.5)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  addButtonText: {
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
   skillsList: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 16,
   },
   skillItem: {
     flexDirection: 'row',
@@ -413,8 +986,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     marginVertical: 2,
-    backgroundColor: '#2D2D2D',
-    borderRadius: 6,
+    backgroundColor: 'rgba(13, 27, 42, 0.5)',
+    borderRadius: 8,
+    position: 'relative',
+    paddingRight: 68,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
+  },
+  skillItemClickable: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: 8,
   },
   skillItemText: {
     fontSize: 14,
@@ -423,22 +1007,42 @@ const styles = StyleSheet.create({
   },
   addIcon: {
     fontSize: 20,
-    color: '#4285F4',
+    color: '#667eea',
     fontWeight: 'bold',
+  },
+  deleteLibraryButton: {
+    position: 'absolute',
+    right: 12,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    zIndex: 10,
+  },
+  deleteButtonText: {
+    fontSize: 18,
   },
   rightPanel: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: 'rgba(13, 27, 42, 0.4)',
   },
   rightPanelHeader: {
     padding: 16,
+    marginTop: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#3D3D3D',
+    borderBottomColor: 'rgba(100, 126, 234, 0.2)',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   rightPanelTitle: {
     fontSize: 18,
     fontWeight: '600',
     color: '#FFFFFF',
+  },
+  rightPanelSubtitle: {
+    fontSize: 14,
+    color: '#9CA3AF',
   },
   selectedSkillsList: {
     flex: 1,
@@ -447,34 +1051,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#2D2D2D',
+    backgroundColor: 'rgba(13, 27, 42, 0.6)',
     marginHorizontal: 12,
     marginTop: 12,
     marginBottom: 8,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#4285F4',
+    borderColor: 'rgba(100, 126, 234, 0.4)',
   },
   selectedSkillItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#2D2D2D',
+    padding: 12,
+    minHeight: 70,
+    backgroundColor: 'rgba(13, 27, 42, 0.5)',
     marginHorizontal: 12,
     marginVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
   },
   selectedSkillItemActive: {
-    backgroundColor: '#3D3D3D',
+    backgroundColor: 'rgba(100, 126, 234, 0.2)',
+    borderColor: 'rgba(100, 126, 234, 0.4)',
   },
   skillOrderBadge: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#4285F4',
+    backgroundColor: 'rgba(102, 126, 234, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 1)',
   },
   skillOrderText: {
     fontSize: 14,
@@ -495,9 +1105,11 @@ const styles = StyleSheet.create({
   skillImagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#3D3D3D',
+    backgroundColor: 'rgba(13, 27, 42, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
   },
   skillImagePlaceholderText: {
     fontSize: 24,
@@ -597,6 +1209,63 @@ const styles = StyleSheet.create({
     backgroundColor: '#3D3D3D',
   },
   saveButtonText: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 500,
+    backgroundColor: '#2D2D2D',
+    borderRadius: 12,
+    padding: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  modalCloseButton: {
+    fontSize: 20,
+    color: '#9CA3AF',
+  },
+  input: {
+    width: '100%',
+    padding: 12,
+    backgroundColor: '#1E1E1E',
+    borderRadius: 8,
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#3D3D3D',
+  },
+  errorText: {
+    fontSize: 12,
+    color: '#e74c3c',
+    marginBottom: 8,
+  },
+  submitButton: {
+    width: '100%',
+    padding: 12,
+    backgroundColor: '#4285F4',
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  submitButtonText: {
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',

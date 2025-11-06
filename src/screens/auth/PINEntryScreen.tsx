@@ -6,12 +6,14 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  SafeAreaView,
   StyleSheet,
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { PINEntryScreenNavigationProp } from '../../navigation/types';
 import { useTranslation } from 'react-i18next';
@@ -20,17 +22,48 @@ import { deleteRemotePIN } from '../../utils/firestorePinService';
 import { useAuthStore } from '../../store/authStore';
 import { auth } from '../../../firebaseConfig';
 import { signOut } from 'firebase/auth';
+import MainMenuButton from '../../components/MainMenuButton';
+import { useAuth } from '../../../hooks/useAuth';
 
 const PINEntryScreen: React.FC = () => {
   const navigation = useNavigation<PINEntryScreenNavigationProp>();
   const { t } = useTranslation();
-  const { setPINVerified } = useAuthStore();
+  const { user, setPINVerified } = useAuthStore();
+  const { logout } = useAuth();
   
   const [pin, setPin] = useState('');
   const [loading, setLoading] = useState(false);
   const [isLockedOut, setIsLockedOut] = useState(false);
   const [lockoutMinutes, setLockoutMinutes] = useState(0);
   const [failedAttempts, setFailedAttempts] = useState(0);
+
+  const confirmSignOut = async () => {
+    try {
+      let shouldSignOut = false;
+      if (Platform.OS === 'web' && typeof globalThis !== 'undefined' && typeof (globalThis as any).confirm === 'function') {
+        shouldSignOut = (globalThis as any).confirm('Oturumu kapatmak istediğinizden emin misiniz?');
+      } else {
+        shouldSignOut = await new Promise<boolean>((resolve) => {
+          Alert.alert(
+            'Çıkış Yap',
+            'Oturumu kapatmak istediğinizden emin misiniz?',
+            [
+              { text: 'İptal', style: 'cancel', onPress: () => resolve(false) },
+              { text: 'Çıkış Yap', style: 'destructive', onPress: () => resolve(true) },
+            ],
+            { cancelable: true }
+          );
+        });
+      }
+
+      if (!shouldSignOut) return;
+
+      await logout();
+      navigation.navigate('Main' as never);
+    } catch (e) {
+      console.error('Sign-out failed', e);
+    }
+  };
 
   useEffect(() => {
     checkLockoutStatus();
@@ -101,6 +134,7 @@ const PINEntryScreen: React.FC = () => {
         setPINVerified(true);
         console.debug('[PINEntryScreen] PIN verified flag set to true, navigating to ParentDashboard');
 
+        // Navigate to ParentDashboard (ParentStack will show ParentTabs as initial route)
         navigation.reset({
           index: 0,
           routes: [{ name: 'ParentDashboard' as never }],
@@ -133,10 +167,6 @@ const PINEntryScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleBack = () => {
-    navigation.goBack();
   };
 
   const handleForgotPIN = () => {
@@ -216,22 +246,50 @@ const PINEntryScreen: React.FC = () => {
   const canVerify = pin.length >= 4 && !isLockedOut;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={handleBack}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0a0a0a', '#1a1a2e', '#16213e']}
+        style={styles.gradientBackground}
       >
-        <Text style={styles.backIcon}>←</Text>
-        <Text style={styles.backText}>{t('common.back')}</Text>
-      </TouchableOpacity>
-
-      <KeyboardAvoidingView 
-        style={styles.content}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      >
-        <View style={styles.iconContainer}>
-          <Text style={styles.icon}>{isLockedOut ? '🔒' : '🔐'}</Text>
+        {/* Ana Menü Button */}
+        <View style={styles.topBar}>
+          <MainMenuButton inline onPress={() => navigation.navigate('Main')} />
         </View>
+
+        {/* User Card */}
+        {user?.email && (
+          <View style={styles.userCard}>
+            <View style={styles.userAvatar}>
+              <Text style={styles.userAvatarText}>
+                {user.email.charAt(0).toUpperCase()}
+              </Text>
+            </View>
+            <View style={styles.userInfo}>
+              <Text style={styles.emailText} numberOfLines={1}>
+                {user.email}
+              </Text>
+            </View>
+            <TouchableOpacity
+              style={styles.signOutButton}
+              onPress={confirmSignOut}
+            >
+              <Text style={styles.signOutIcon}>🚪</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <KeyboardAvoidingView 
+          style={styles.content}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        >
+          <View style={styles.iconContainer}>
+            <LinearGradient
+              colors={isLockedOut ? ['#e74c3c', '#c0392b'] : ['#667eea', '#764ba2']}
+              style={styles.iconGradient}
+            >
+              <Text style={styles.icon}>{isLockedOut ? '🔒' : '🔐'}</Text>
+            </LinearGradient>
+          </View>
         
         <Text style={styles.title}>{t('auth.pinEntryTitle')}</Text>
         <Text style={styles.subtitle}>
@@ -294,35 +352,35 @@ const PINEntryScreen: React.FC = () => {
           onPress={handleForgotPIN}
           disabled={loading}
         >
-          <Text style={styles.forgotButtonText}>
-            PIN'inizi mi unuttunuz?
-          </Text>
+          <LinearGradient
+            colors={['rgba(100, 126, 234, 0.2)', 'rgba(100, 126, 234, 0.1)']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.forgotGradient}
+          >
+            <Text style={styles.forgotButtonText}>
+              PIN'inizi mi unuttunuz?
+            </Text>
+          </LinearGradient>
         </TouchableOpacity>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#000000',
   },
-  backButton: {
-    flexDirection: 'row',
+  gradientBackground: {
+    flex: 1,
+  },
+  topBar: {
     alignItems: 'center',
-    padding: 16,
-    marginTop: 8,
-  },
-  backIcon: {
-    fontSize: 20,
-    color: '#FFFFFF',
-    marginRight: 8,
-  },
-  backText: {
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '500',
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   content: {
     flex: 1,
@@ -330,14 +388,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#2D2D2D',
-    alignItems: 'center',
-    justifyContent: 'center',
     alignSelf: 'center',
     marginBottom: 24,
+  },
+  iconGradient: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
   },
   icon: {
     fontSize: 48,
@@ -356,23 +426,33 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   warningBox: {
-    backgroundColor: 'rgba(251, 188, 4, 0.15)',
+    backgroundColor: 'rgba(231, 76, 60, 0.15)',
+    borderLeftWidth: 4,
+    borderLeftColor: '#e74c3c',
     borderRadius: 12,
     padding: 16,
     marginBottom: 24,
-    borderWidth: 1,
-    borderColor: 'rgba(251, 188, 4, 0.3)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#e74c3c',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
   },
   warningText: {
     fontSize: 14,
-    color: '#FBBC04',
+    color: '#e74c3c',
     textAlign: 'center',
     fontWeight: '600',
   },
   attemptsText: {
-    // Match warningText so all lines use the same font/weight/color
     fontSize: 14,
-    color: '#FBBC04',
+    color: '#e74c3c',
     textAlign: 'center',
     marginTop: 8,
     fontWeight: '600',
@@ -386,9 +466,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 16,
     paddingVertical: 16,
-    borderBottomWidth: 2,
-    borderBottomColor: '#4285F4',
+    backgroundColor: 'rgba(13, 27, 42, 0.6)',
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: 'rgba(100, 126, 234, 0.3)',
     marginBottom: 24,
+    fontWeight: '700',
   },
   pinDots: {
     flexDirection: 'row',
@@ -399,45 +482,151 @@ const styles = StyleSheet.create({
     width: 16,
     height: 16,
     borderRadius: 8,
-    backgroundColor: '#3D3D3D',
+    backgroundColor: 'rgba(13, 27, 42, 0.6)',
     borderWidth: 2,
-    borderColor: '#4D4D4D',
+    borderColor: 'rgba(100, 126, 234, 0.3)',
   },
   dotFilled: {
-    backgroundColor: '#4285F4',
-    borderColor: '#4285F4',
+    backgroundColor: '#667eea',
+    borderColor: '#667eea',
   },
   verifyButton: {
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 32,
-    backgroundColor: '#4285F4',
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
     marginBottom: 16,
+    overflow: 'hidden',
+    backgroundColor: '#667eea',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   verifyButtonText: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
   forgotButton: {
     paddingVertical: 12,
     paddingHorizontal: 24,
     alignItems: 'center',
     marginBottom: 16,
+    borderRadius: 12,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  forgotGradient: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
   },
   forgotButtonText: {
     fontSize: 14,
-    color: '#64b5f6',
-    textDecorationLine: 'underline',
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   hint: {
     fontSize: 14,
     color: '#9CA3AF',
     textAlign: 'center',
+  },
+  userCard: {
+    position: 'absolute',
+    right: 16,
+    top: Platform.OS === 'web' ? 16 : 12,
+    zIndex: 9999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 6,
+    paddingLeft: 6,
+    paddingRight: 12,
+    borderRadius: 24,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.3)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.4,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  userAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(102, 126, 234, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  userAvatarText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  userInfo: {
+    maxWidth: 140,
+  },
+  emailText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  signOutButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 59, 48, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 59, 48, 0.3)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#ff3b30',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.4,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  signOutIcon: {
+    fontSize: 16,
   },
 });
 

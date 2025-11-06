@@ -30,6 +30,8 @@ export default {
     education: 'Eğitim İçerikleri',
     educationDesc: 'Öğren ve keşfet',
     version: 'RutiMind v2.0',
+    signOut: 'Çıkış Yap',
+    signOutConfirm: 'Çıkış yapmak istediğinizden emin misiniz?',
   },
   
   // Authentication
@@ -42,10 +44,10 @@ export default {
     pinSetupSubtitle: 'Uygulamaya girmek için 6 haneli bir PIN belirleyin.',
     pinEntryTitle: 'PIN Kodu',
     pinEntrySubtitle: 'Devam etmek için lütfen daha önceden belirlediğiniz PIN kodunuzu giriniz.',
-    pinMismatch: 'PIN kodları eşleşmiyor',
+    pinMismatch: 'PIN kodları eşleşmiyor!',
     pinTooShort: 'PIN en az 4 haneli olmalıdır',
     pinTooLong: 'PIN en fazla 6 haneli olmalıdır',
-    pinIncorrect: 'Yanlış PIN kodu',
+    pinIncorrect: 'Yanlış PIN kodu!',
     pinLockout: 'Çok fazla hatalı deneme. Lütfen {{minutes}} dakika bekleyin.',
     signOut: 'Çıkış Yap',
   },
@@ -86,14 +88,27 @@ export default {
   reinforcers: {
     title: 'Pekiştireçler',
     subtitle: 'Pekiştireçleri düzenle ve yönet',
+    library: 'Pekiştireç Listesi',
+    slots: 'Seçili Pekiştireçler',
+    add: 'Ekle',
+    addNew: 'Yeni Pekiştireç Ekle',
     list: 'Pekiştireç Listesi',
     selected: 'Seçili Pekiştireçler',
     addReinforcer: 'Pekiştireç Ekle',
     name: 'İsim',
+    namePlaceholder: 'Pekiştireç adı girin',
     slot: 'Slot',
     slotDescription: 'Bu pekiştireç kaç olumlu davranış sonrası gösterilsin?',
+    uploadImage: 'Resim Yükle',
+    save: 'Kaydet',
+    saved: 'Pekiştireçler kaydedildi!',
     saveSuccess: 'Pekiştireçler başarıyla kaydedildi',
     emptyState: 'Henüz pekiştireç eklenmemiş',
+    emptySlot: 'Bu slot boş',
+    noReinforcers: 'Henüz pekiştireç yok.\n"Ekle" butonundan yeni pekiştireç ekleyin.',
+    noSlotsSelected: 'En az bir slot doldurulmalıdır',
+    deleteConfirm: 'Pekiştireç Sil',
+    deleteMessage: 'Bu pekiştireci silmek istediğinizden emin misiniz?',
   },
   
   // Progress
@@ -118,11 +133,16 @@ export default {
     readySubtitle: 'Becerilerini tamamlamaya başlamak için hazır olduğunda "Evet" butonuna tıkla!',
     readyYes: 'Evet, Başlayalım!',
     readyNo: 'Hayır, Ana Menüye Dön',
-    waitingTitle: 'Bekleniyor...',
-    waitingSubtitle: '{{seconds}} saniye sonra başlayacak',
+  waitingTitle: 'Bekleniyor...',
+  // Use a formatted time string (e.g. 4:53) instead of raw seconds.
+  waitingSubtitle: '{{time}} sonra başlayacak',
     skillQuestion: 'Bunu yaptın mı?',
     respond: 'Yanıtla',
-    timeRemaining: '{{seconds}} saniye kaldı',
+  timeRemaining: '{{seconds}} saniye kaldı',
+  // Hint shown under the timer while waiting
+  waitingHint: 'Hazır ol! İlk beceri kısa süre içinde başlayacak.',
+  // Dev-only testing button label (visible in development)
+  testingButton: 'Test: 3s (uzun bas = sıfırla)',
     sessionComplete: 'Oturum Tamamlandı!',
     sessionCompleteMessage: 'Tebrikler! Tüm becerileri tamamladın.',
     backToMenu: 'Ana Menüye Dön',
@@ -179,11 +199,21 @@ export default {
   
   // Errors
   errors: {
+    title: 'Hata',
     generic: 'Bir hata oluştu. Lütfen tekrar deneyin.',
     network: 'İnternet bağlantısı hatası',
     authentication: 'Giriş hatası. Lütfen tekrar deneyin.',
-    permission: 'Bu işlem için izin gerekli',
+    permission: 'İzin Gerekli',
+    cameraPermission: 'Fotoğraf seçmek için galeriye erişim izni gereklidir.',
+    imagePicker: 'Resim yüklenirken bir hata oluştu.',
     notFound: 'İçerik bulunamadı',
     serverError: 'Sunucu hatası. Lütfen daha sonra tekrar deneyin.',
+    validation: 'Doğrulama Hatası',
+  },
+  
+  // Success messages
+  success: {
+    title: 'Başarılı',
+    saved: 'Kaydedildi!',
   },
 };

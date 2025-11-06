@@ -11,12 +11,38 @@ import {
   ScrollView,
   FlatList,
   Image,
+  Platform,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableSkillList from './components/DraggableSkillList';
 import { useAuth } from './hooks/useAuth';
 import { skillCategories, MAX_SELECTED_SKILLS } from './data/skillsData';
+import MainMenuButton from './src/components/MainMenuButton';
+
+// Small helper to produce platform-appropriate shadow styles.
+// On web we return a boxShadow string, on native we return the usual shadow* props.
+const hexToRgba = (hex = '#000000', alpha = 1) => {
+  let c = hex.replace('#', '');
+  if (c.length === 3) c = c.split('').map((ch) => ch + ch).join('');
+  const num = parseInt(c, 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+};
+
+const webShadow = (color = '#000', offsetY = 2, opacity = 0.12, radius = 6) => {
+  if (Platform.OS === 'web') {
+    return { boxShadow: `0 ${offsetY}px ${radius}px ${hexToRgba(color, opacity)}` };
+  }
+  return {
+    shadowColor: color,
+    shadowOffset: { width: 0, height: offsetY },
+    shadowOpacity: opacity,
+    shadowRadius: radius,
+  };
+};
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState('main');
@@ -146,6 +172,8 @@ export default function App() {
 
     return (
       <SafeAreaView style={styles.darkContainer}>
+        {/* Global centered Ana Menü button (shared component) */}
+        <MainMenuButton onPress={() => { logout(); setCurrentScreen('main'); }} />
         <View style={styles.modernStudentHeader}>
           <TouchableOpacity
             style={styles.studentBackButton}
@@ -208,13 +236,8 @@ export default function App() {
       <SafeAreaView style={styles.darkContainer}>
         {/* Üst Bar */}
         <View style={styles.parentTopBar}>
-          <TouchableOpacity 
-            onPress={() => setCurrentScreen('main')} 
-            style={styles.parentBackButton}
-          >
-            <Text style={styles.parentBackIcon}>←</Text>
-            <Text style={styles.parentBackText}>Ana Menü</Text>
-          </TouchableOpacity>
+          {/* Centered Ana Menü button (shared) */}
+          <MainMenuButton onPress={() => setCurrentScreen('main')} />
         </View>
         
         <ScrollView style={styles.parentScrollView} contentContainerStyle={styles.parentScrollContent}>
@@ -555,16 +578,8 @@ export default function App() {
             <Text style={styles.dashboardHeaderSubtitle}>{user?.email}</Text>
           </View>
           
-          <TouchableOpacity 
-            style={styles.dashboardHomeButton}
-            onPress={() => {
-              logout();
-              setCurrentScreen('main');
-            }}
-          >
-            <Text style={styles.dashboardHomeIcon}>🏠</Text>
-            <Text style={styles.dashboardHomeText}>Ana Menü</Text>
-          </TouchableOpacity>
+          {/* right-side placeholder - global main menu placed above as centered button */}
+          <View style={styles.placeholder} />
         </View>
 
         {/* Content */}
@@ -730,10 +745,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2d2d2d',
     borderRadius: 24,
     padding: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
+    ...webShadow('#000', 8, 0.3, 16),
     elevation: 8,
   },
   readyEmoji: {
@@ -766,10 +778,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    ...webShadow('#000', 4, 0.2, 8),
     elevation: 4,
   },
   yesButton: {
@@ -906,10 +915,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     overflow: 'hidden',
     elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
+    ...webShadow('#000', 4, 0.3, 12),
   },
   parentCard: {
     backgroundColor: '#2c3e50',
@@ -991,11 +997,8 @@ const styles = StyleSheet.create({
   },
   educationCard: {
     backgroundColor: '#2c3e50',
-    borderWidth: 1,
-    borderColor: '#34495e',
-  },
-  smallIconContainer: {
-    width: 50,
+    ...webShadow('#000', 4, 0.2, 8),
+    elevation: 4,
     height: 50,
     borderRadius: 16,
     backgroundColor: '#34495e',
@@ -1816,10 +1819,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
-    shadowColor: '#4285F4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
+    ...webShadow('#4285F4', 2, 0.4, 4),
     elevation: 3,
   },
   panelHeaderIcon: {
@@ -1837,10 +1837,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
-    shadowColor: '#4285F4',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    ...webShadow('#4285F4', 2, 0.3, 4),
     elevation: 3,
   },
   panelCountText: {
@@ -1861,10 +1858,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    ...webShadow('#000', 2, 0.2, 4),
     elevation: 3,
     borderWidth: 1,
   },
@@ -1895,10 +1889,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    ...webShadow('#000', 2, 0.1, 4),
     elevation: 3,
   },
   backButton: {
@@ -1939,10 +1930,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#2D2D2D',
     borderRadius: 12,
     maxWidth: 120,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    ...webShadow('#000', 2, 0.2, 4),
     elevation: 4,
   },
   parentBackIcon: {
@@ -1954,6 +1942,44 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  parentMainButton: {
+    alignSelf: 'center',
+    backgroundColor: '#2D2D2D',
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#34495e',
+  },
+  parentMainText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  // Centered global main menu wrapper for some screens
+  globalMainMenuWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: Platform.OS === 'web' ? 36 : 28,
+    alignItems: 'center',
+    zIndex: 10000,
+    pointerEvents: 'box-none',
+  },
+  globalMainMenuButton: {
+    backgroundColor: 'rgba(66, 133, 244, 0.95)',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  globalMainMenuText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   parentScrollView: {
     flex: 1,
@@ -1977,10 +2003,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    ...webShadow('#000', 4, 0.3, 8),
     elevation: 6,
   },
   parentLogoText: {
@@ -2007,10 +2030,7 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    ...webShadow('#000', 4, 0.3, 8),
     elevation: 6,
     marginBottom: 40,
   },
@@ -2022,10 +2042,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     backgroundColor: '#4285F4',
     borderRadius: 8,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
+    ...webShadow('#000000', 2, 0.15, 4),
     elevation: 3,
   },
   googleIconContainer: {

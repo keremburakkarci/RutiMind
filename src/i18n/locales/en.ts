@@ -30,6 +30,8 @@ export default {
     education: 'Education Content',
     educationDesc: 'Learn and explore',
     version: 'RutiMind v2.0',
+    signOut: 'Sign Out',
+    signOutConfirm: 'Are you sure you want to sign out?',
   },
   
   // Authentication
@@ -86,14 +88,27 @@ export default {
   reinforcers: {
     title: 'Reinforcers',
     subtitle: 'Edit and manage reinforcers',
+    library: 'Reinforcer Library',
+    slots: 'Slot Layout',
+    add: 'Add',
+    addNew: 'Add New Reinforcer',
     list: 'Reinforcer List',
     selected: 'Selected Reinforcers',
     addReinforcer: 'Add Reinforcer',
     name: 'Name',
+    namePlaceholder: 'Enter reinforcer name',
     slot: 'Slot',
     slotDescription: 'After how many positive behaviors should this reinforcer appear?',
+    uploadImage: 'Upload Image',
+    save: 'Save',
+    saved: 'Reinforcers saved!',
     saveSuccess: 'Reinforcers saved successfully',
     emptyState: 'No reinforcers added yet',
+    emptySlot: 'This slot is empty',
+    noReinforcers: 'No reinforcers yet.\nAdd a new reinforcer using the "Add" button.',
+    noSlotsSelected: 'At least one slot must be filled',
+    deleteConfirm: 'Delete Reinforcer',
+    deleteMessage: 'Are you sure you want to delete this reinforcer?',
   },
   
   // Progress
@@ -118,11 +133,16 @@ export default {
     readySubtitle: 'When you\'re ready to start completing your skills, click "Yes"!',
     readyYes: 'Yes, Let\'s Start!',
     readyNo: 'No, Back to Main Menu',
-    waitingTitle: 'Waiting...',
-    waitingSubtitle: 'Starting in {{seconds}} seconds',
+  waitingTitle: 'Waiting...',
+  // Use a formatted time string (e.g. 4:53) instead of raw seconds.
+  waitingSubtitle: 'Starting in {{time}}',
     skillQuestion: 'Did you do this?',
     respond: 'Respond',
-    timeRemaining: '{{seconds}} seconds remaining',
+  timeRemaining: '{{seconds}} seconds remaining',
+  // Hint shown under the timer while waiting
+  waitingHint: 'Stay ready — the first skill will start shortly.',
+  // Dev-only testing button label (visible in development)
+  testingButton: 'Test: 3s (long press = reset)',
     sessionComplete: 'Session Complete!',
     sessionCompleteMessage: 'Congratulations! You completed all skills.',
     backToMenu: 'Back to Main Menu',
@@ -179,11 +199,21 @@ export default {
   
   // Errors
   errors: {
+    title: 'Error',
     generic: 'An error occurred. Please try again.',
     network: 'Network connection error',
     authentication: 'Authentication error. Please try again.',
-    permission: 'Permission required for this action',
+    permission: 'Permission Required',
+    cameraPermission: 'Gallery access permission is required to select photos.',
+    imagePicker: 'An error occurred while uploading the image.',
     notFound: 'Content not found',
     serverError: 'Server error. Please try again later.',
+    validation: 'Validation Error',
+  },
+  
+  // Success messages
+  success: {
+    title: 'Success',
+    saved: 'Saved!',
   },
 };
