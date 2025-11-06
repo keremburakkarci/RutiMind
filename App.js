@@ -164,6 +164,8 @@ export default function App() {
     if (isReady === null) {
       return (
         <SafeAreaView style={styles.darkContainer}>
+          {/* Global centered Ana Menü button (shared component) */}
+          <MainMenuButton onPress={handleMainMenuPress} />
           <View style={styles.studentReadyContainer}>
             <View style={styles.readyContent}>
               <Text style={styles.readyEmoji}>🎯</Text>
