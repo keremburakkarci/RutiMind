@@ -23,8 +23,8 @@ export default {
   mainMenu: {
     title: 'RutiMind',
     subtitle: 'Kendini yönetmenin akıllı yolu',
-    parentPanel: 'Veli Paneli',
-    parentPanelDesc: 'Becerileri yönet ve takip et',
+  parentPanel: 'Öğretmen Paneli',
+  parentPanelDesc: 'Becerileri yönet ve takip et',
     studentMode: 'Öğrenci Modu',
     studentModeDesc: 'Becerileri tamamla',
     education: 'Eğitim İçerikleri',
@@ -36,8 +36,8 @@ export default {
   
   // Authentication
   auth: {
-    welcomeTitle: 'Veli Paneline Hoş Geldiniz!',
-    welcomeSubtitle: 'Çocuğunuzun gelişimini takip etmek için lütfen giriş yapın.',
+  welcomeTitle: 'Öğretmen Paneline Hoş Geldiniz!',
+  welcomeSubtitle: 'Çocuğunuzun gelişimini takip etmek için lütfen giriş yapın.',
     signInWithGoogle: 'Google ile Giriş Yap',
     securityInfo: 'Güvenli giriş ve veri koruması',
     pinSetupTitle: 'Lütfen 6 haneli bir PIN oluşturun.',
@@ -146,7 +146,7 @@ export default {
     sessionComplete: 'Oturum Tamamlandı!',
     sessionCompleteMessage: 'Tebrikler! Tüm becerileri tamamladın.',
     backToMenu: 'Ana Menüye Dön',
-    noSkillsConfigured: 'Beceri listesi boş. Lütfen önce veli panelinden beceri ekleyin.',
+  noSkillsConfigured: 'Beceri listesi boş. Lütfen önce öğretmen panelinden beceri ekleyin.',
   },
   
   // Dashboard
@@ -182,7 +182,7 @@ export default {
     selfReinforcement: 'Kendini Pekiştirme',
     
     // App usage topics
-    parentMode: 'Veli Modu Kullanımı',
+  parentMode: 'Öğretmen Modu Kullanımı',
     studentMode: 'Öğrenci Modu Kullanımı',
   },
   

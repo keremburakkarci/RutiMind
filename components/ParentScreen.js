@@ -45,7 +45,7 @@ export const ParentScreen = ({ setCurrentScreen, signInWithGoogle }) => {
       </View>
       <View style={styles.modernAuthHeader}>
         <View style={styles.placeholder} />
-        <Text style={styles.modernAuthHeaderTitle}>Veli Paneli</Text>
+  <Text style={styles.modernAuthHeaderTitle}>Öğretmen Paneli</Text>
         <View style={styles.placeholder} />
       </View>
       
@@ -57,7 +57,7 @@ export const ParentScreen = ({ setCurrentScreen, signInWithGoogle }) => {
             </View>
             <Text style={styles.modernWelcomeTitle}>Hoş Geldiniz!</Text>
             <Text style={styles.modernWelcomeSubtitle}>
-              RutiMind veli paneline giriş yapın
+              RutiMind öğretmen paneline giriş yapın
             </Text>
           </View>
 

@@ -82,7 +82,7 @@ export default function App() {
                 <Text style={styles.cardIcon}>👨‍👩‍👧‍👦</Text>
               </View>
             </View>
-            <Text style={styles.cardTitle}>Veli Paneli</Text>
+            <Text style={styles.cardTitle}>Öğretmen Paneli</Text>
             <Text style={styles.cardDescription}>Becerileri yönet ve takip et</Text>
             <View style={styles.cardAction}>
             </View>
@@ -96,7 +96,7 @@ export default function App() {
               if (selectedSkills.length === 0) {
                 Alert.alert(
                   'Beceri Listesi Boş',
-                  'Öğrenci moduna geçmek için önce veli panelinden beceri listesi oluşturulmalıdır.',
+                  'Öğrenci moduna geçmek için önce öğretmen panelinden beceri listesi oluşturulmalıdır.',
                   [{ text: 'Tamam', style: 'default' }]
                 );
                 return;
@@ -209,7 +209,7 @@ export default function App() {
 
 
 
-  // Veli girişi ekranı
+  // Öğretmen girişi ekranı
   const ParentScreen = () => {
     const [signInLoading, setSignInLoading] = useState(false);
     
@@ -246,7 +246,7 @@ export default function App() {
             <View style={styles.parentLogoContainer}>
               <Text style={styles.parentLogoText}>👨‍👩‍👧‍👦</Text>
             </View>
-            <Text style={styles.parentTitle}>Veli Paneline Hoş Geldiniz!</Text>
+            <Text style={styles.parentTitle}>Öğretmen Paneline Hoş Geldiniz!</Text>
             <Text style={styles.parentSubtitle}>
               Çocuğunuzun gelişimini takip etmek için lütfen giriş yapın.
             </Text>
@@ -536,7 +536,7 @@ export default function App() {
   );
 };
 
-  // Veli Dashboard ekranı
+  // Öğretmen Dashboard ekranı
   const ParentDashboard = () => {
     // Kullanıcı giriş yapmamışsa ana menüye yönlendir
     useEffect(() => {
@@ -574,7 +574,7 @@ export default function App() {
           </TouchableOpacity>
           
           <View style={styles.dashboardHeaderCenter}>
-            <Text style={styles.dashboardHeaderTitle}>Veli Paneli</Text>
+            <Text style={styles.dashboardHeaderTitle}>Öğretmen Paneli</Text>
             <Text style={styles.dashboardHeaderSubtitle}>{user?.email}</Text>
           </View>
           
@@ -1222,7 +1222,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 10,
   },
-  // Veli Giriş Ekranı Dark Mode Styles
+  // Öğretmen Giriş Ekranı Dark Mode Styles
   darkAuthScreenHeader: {
     backgroundColor: '#2c3e50',
   },
@@ -1914,7 +1914,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   // Modern Authentication Styles
-  // Veli Panel Stilleri
+  // Öğretmen Panel Stilleri
   parentTopBar: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -14,8 +14,8 @@ const ParentHome: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      {/* Global top actions (title, main menu, user profile) */}
-      <GlobalTopActions title={t('parent.homeTitle', 'Veli Paneli')} showBack={false} />
+  {/* Global top actions (title, main menu, user profile) */}
+  <GlobalTopActions title={t('parent.homeTitle', 'Öğretmen Paneli')} showBack={false} />
       
       <LinearGradient
         colors={['#0a0a0a', '#1a1a2e', '#16213e']}

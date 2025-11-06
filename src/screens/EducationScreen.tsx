@@ -56,7 +56,7 @@ const EducationScreen: React.FC = () => {
                 screenTitle: 'Uygulama Eğitimi',
                 steps: [
                   { title: 'Uygulamaya giriş', videoUrl: null },
-                  { title: 'Veli Paneline Giriş', videoUrl: null },
+                  { title: 'Öğretmen Paneline Giriş', videoUrl: null },
                   { title: 'Becerileri Belirleme', videoUrl: null },
                   { title: 'Pekişireçleri Belirleme', videoUrl: null },
                   { title: 'Gelişim Grafiğini Görüntüleme', videoUrl: null },
