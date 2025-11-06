@@ -9,7 +9,7 @@ import {
   Platform,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import type { ReadyScreenNavigationProp } from '../../navigation/types';
 import { useTranslation } from 'react-i18next';
 import { useSkillsStore } from '../../store/skillsStore';
@@ -36,7 +36,7 @@ const ReadyScreen: React.FC = () => {
     try {
       console.debug('[ReadyScreen] main menu pressed');
       // Web: use native confirm for a more reliable UX in browsers
-      if (Platform.OS === 'web' && typeof (globalThis as any).confirm === 'function') {
+        if (Platform.OS === 'web' && typeof (globalThis as any).confirm === 'function') {
         const ok1 = (globalThis as any).confirm('Ana menüye dönmek istediğinize emin misiniz?');
         console.debug('[ReadyScreen] web confirm1 result:', ok1);
         if (!ok1) return;
@@ -44,12 +44,15 @@ const ReadyScreen: React.FC = () => {
         console.debug('[ReadyScreen] web confirm2 result:', ok2);
         if (!ok2) return;
         await logout();
-        (navigation.getParent() as any)?.navigate('Main');
+        // Reset navigation to root Main to ensure we land on the designed MainScreen
+        const topNav = (navigation.getParent() as any) || (navigation as any);
+        console.debug('[ReadyScreen] dispatching reset to Main on topNav');
+        topNav.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Main' }] }));
         return;
       }
 
       // Native flow using Alert
-      Alert.alert(
+        Alert.alert(
         'Emin misiniz?',
         'Ana menüye dönmek istediğinize emin misiniz?',
         [
@@ -61,7 +64,7 @@ const ReadyScreen: React.FC = () => {
               'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
               [
                 { text: 'Hayır', style: 'cancel', onPress: () => console.debug('[ReadyScreen] second alert cancelled (no)') },
-                { text: 'Evet', onPress: async () => { console.debug('[ReadyScreen] second alert confirmed - logging out'); await logout(); (navigation.getParent() as any)?.navigate('Main'); } }
+                  { text: 'Evet', onPress: async () => { console.debug('[ReadyScreen] second alert confirmed - logging out'); await logout(); const topNav2 = (navigation.getParent() as any) || (navigation as any); topNav2.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Main' }] })); } }
               ],
               { cancelable: false }
             );
