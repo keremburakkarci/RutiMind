@@ -137,6 +137,29 @@ export default function App() {
   // Öğrenci modu ekranı
   const StudentScreen = () => {
     const [isReady, setIsReady] = useState(null);
+    // Handler that asks for confirmation twice before returning to main menu
+    const handleMainMenuPress = () => {
+      Alert.alert(
+        'Emin misiniz?',
+        'Ana menüye dönmek istediğinize emin misiniz?',
+        [
+          { text: 'Hayır', style: 'cancel' },
+          { text: 'Evet', onPress: () => {
+            // Second confirmation
+            Alert.alert(
+              'Son Onay',
+              'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
+              [
+                { text: 'Hayır', style: 'cancel' },
+                { text: 'Evet', onPress: () => { logout(); setCurrentScreen('main'); } }
+              ],
+              { cancelable: false }
+            );
+          } }
+        ],
+        { cancelable: false }
+      );
+    };
 
     if (isReady === null) {
       return (
@@ -172,8 +195,8 @@ export default function App() {
 
     return (
       <SafeAreaView style={styles.darkContainer}>
-        {/* Global centered Ana Menü button (shared component) */}
-        <MainMenuButton onPress={() => { logout(); setCurrentScreen('main'); }} />
+  {/* Global centered Ana Menü button (shared component) */}
+  <MainMenuButton onPress={handleMainMenuPress} />
         <View style={styles.modernStudentHeader}>
           <TouchableOpacity
             style={styles.studentBackButton}
