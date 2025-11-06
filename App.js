@@ -138,27 +138,45 @@ export default function App() {
   const StudentScreen = () => {
     const [isReady, setIsReady] = useState(null);
     // Handler that asks for confirmation twice before returning to main menu
-    const handleMainMenuPress = () => {
-      Alert.alert(
-        'Emin misiniz?',
-        'Ana menüye dönmek istediğinize emin misiniz?',
-        [
-          { text: 'Hayır', style: 'cancel' },
-          { text: 'Evet', onPress: () => {
-            // Second confirmation
-            Alert.alert(
-              'Son Onay',
-              'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
-              [
-                { text: 'Hayır', style: 'cancel' },
-                { text: 'Evet', onPress: () => { logout(); setCurrentScreen('main'); } }
-              ],
-              { cancelable: false }
-            );
-          } }
-        ],
-        { cancelable: false }
-      );
+    const handleMainMenuPress = async () => {
+      try {
+        console.debug('[App::StudentScreen] MainMenu pressed');
+        if (Platform.OS === 'web' && typeof (globalThis).confirm === 'function') {
+          const ok1 = (globalThis).confirm('Ana menüye dönmek istediğinize emin misiniz?');
+          console.debug('[App::StudentScreen] web confirm1', ok1);
+          if (!ok1) return;
+          const ok2 = (globalThis).confirm('Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.');
+          console.debug('[App::StudentScreen] web confirm2', ok2);
+          if (!ok2) return;
+          await logout();
+          setCurrentScreen('main');
+          return;
+        }
+
+        Alert.alert(
+          'Emin misiniz?',
+          'Ana menüye dönmek istediğinize emin misiniz?',
+          [
+            { text: 'Hayır', style: 'cancel', onPress: () => console.debug('[App::StudentScreen] first cancel') },
+            { text: 'Evet', onPress: () => {
+              console.debug('[App::StudentScreen] first confirm');
+              Alert.alert(
+                'Son Onay',
+                'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
+                [
+                  { text: 'Hayır', style: 'cancel', onPress: () => console.debug('[App::StudentScreen] second cancel') },
+                  { text: 'Evet', onPress: async () => { console.debug('[App::StudentScreen] second confirm - logging out'); await logout(); setCurrentScreen('main'); } }
+                ],
+                { cancelable: false }
+              );
+            } }
+          ],
+          { cancelable: false }
+        );
+      } catch (e) {
+        console.error('[App::StudentScreen] handleMainMenuPress error', e);
+        try { Alert.alert('Hata', 'Ana menüye dönme sırasında bir hata oluştu.'); } catch (_) {}
+      }
     };
 
     if (isReady === null) {

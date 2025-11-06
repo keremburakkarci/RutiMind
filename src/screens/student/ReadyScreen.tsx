@@ -32,26 +32,47 @@ const ReadyScreen: React.FC = () => {
 
   const { logout } = useAuth();
 
-  const handleMainMenuPress = () => {
-    Alert.alert(
-      'Emin misiniz?',
-      'Ana menüye dönmek istediğinize emin misiniz?',
-      [
-        { text: 'Hayır', style: 'cancel' },
-        { text: 'Evet', onPress: () => {
-          Alert.alert(
-            'Son Onay',
-            'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
-            [
-              { text: 'Hayır', style: 'cancel' },
-              { text: 'Evet', onPress: async () => { await logout(); (navigation.getParent() as any)?.navigate('Main'); } }
-            ],
-            { cancelable: false }
-          );
-        } }
-      ],
-      { cancelable: false }
-    );
+  const handleMainMenuPress = async () => {
+    try {
+      console.debug('[ReadyScreen] main menu pressed');
+      // Web: use native confirm for a more reliable UX in browsers
+      if (Platform.OS === 'web' && typeof (globalThis as any).confirm === 'function') {
+        const ok1 = (globalThis as any).confirm('Ana menüye dönmek istediğinize emin misiniz?');
+        console.debug('[ReadyScreen] web confirm1 result:', ok1);
+        if (!ok1) return;
+        const ok2 = (globalThis as any).confirm('Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.');
+        console.debug('[ReadyScreen] web confirm2 result:', ok2);
+        if (!ok2) return;
+        await logout();
+        (navigation.getParent() as any)?.navigate('Main');
+        return;
+      }
+
+      // Native flow using Alert
+      Alert.alert(
+        'Emin misiniz?',
+        'Ana menüye dönmek istediğinize emin misiniz?',
+        [
+          { text: 'Hayır', style: 'cancel', onPress: () => console.debug('[ReadyScreen] alert cancelled (no)') },
+          { text: 'Evet', onPress: () => {
+            console.debug('[ReadyScreen] alert first confirmed');
+            Alert.alert(
+              'Son Onay',
+              'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
+              [
+                { text: 'Hayır', style: 'cancel', onPress: () => console.debug('[ReadyScreen] second alert cancelled (no)') },
+                { text: 'Evet', onPress: async () => { console.debug('[ReadyScreen] second alert confirmed - logging out'); await logout(); (navigation.getParent() as any)?.navigate('Main'); } }
+              ],
+              { cancelable: false }
+            );
+          } }
+        ],
+        { cancelable: false }
+      );
+    } catch (e) {
+      console.error('[ReadyScreen] handleMainMenuPress error', e);
+      try { Alert.alert('Hata', 'Ana menüye dönme sırasında bir hata oluştu.'); } catch (_) {}
+    }
   };
 
   return (
