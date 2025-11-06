@@ -12,10 +12,11 @@ import {
   Alert,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useRoute } from '@react-navigation/native';
+import { useNavigation, useRoute, CommonActions } from '@react-navigation/native';
 import { useTranslation } from 'react-i18next';
 import type { SkillPresentationScreenNavigationProp, SkillPresentationScreenRouteProp } from '../../navigation/types';
 import { useAuthStore } from '../../store/authStore';
+import MainMenuButton from '../../components/MainMenuButton';
 import { saveResponse } from '../../services/responseService';
 import type { SkillResponse } from '../../services/sessionManager';
 import * as Haptics from 'expo-haptics';
@@ -210,6 +211,42 @@ const SkillPresentationScreen: React.FC = () => {
           colors={['#0a0a0a', '#1a1a2e', '#16213e']}
           style={styles.gradientBackground}
         >
+          {/* Main menu button (top center) */}
+          <MainMenuButton onPress={async () => {
+            try {
+              console.debug('[SkillPresentation] main menu pressed (blackout)');
+              if (Platform.OS === 'web' && typeof (globalThis as any).confirm === 'function') {
+                const ok1 = (globalThis as any).confirm('Ana menüye dönmek istediğinize emin misiniz?');
+                if (!ok1) return;
+                const ok2 = (globalThis as any).confirm('Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.');
+                if (!ok2) return;
+                const top = (navigation.getParent() as any) || (navigation as any);
+                top.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Main' }] }));
+                return;
+              }
+              Alert.alert(
+                'Emin misiniz?',
+                'Ana menüye dönmek istediğinize emin misiniz?',
+                [
+                  { text: 'Hayır', style: 'cancel' },
+                  { text: 'Evet', onPress: () => {
+                    Alert.alert(
+                      'Son Onay',
+                      'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
+                      [
+                        { text: 'Hayır', style: 'cancel' },
+                        { text: 'Evet', onPress: () => { const top = (navigation.getParent() as any) || (navigation as any); top.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Main' }] })); } }
+                      ],
+                      { cancelable: false }
+                    );
+                  } }
+                ],
+                { cancelable: false }
+              );
+            } catch (e) {
+              console.error('[SkillPresentation] main menu handler error', e);
+            }
+          }} />
           <View style={styles.content}>
             <LinearGradient
               colors={['#F39C12', '#E67E22']}
@@ -256,6 +293,42 @@ const SkillPresentationScreen: React.FC = () => {
         colors={['#0a0a0a', '#1a1a2e', '#16213e']}
         style={styles.gradientBackground}
       >
+        {/* Main menu button (top center) */}
+        <MainMenuButton onPress={async () => {
+          try {
+            console.debug('[SkillPresentation] main menu pressed');
+            if (Platform.OS === 'web' && typeof (globalThis as any).confirm === 'function') {
+              const ok1 = (globalThis as any).confirm('Ana menüye dönmek istediğinize emin misiniz?');
+              if (!ok1) return;
+              const ok2 = (globalThis as any).confirm('Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.');
+              if (!ok2) return;
+              const top = (navigation.getParent() as any) || (navigation as any);
+              top.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Main' }] }));
+              return;
+            }
+            Alert.alert(
+              'Emin misiniz?',
+              'Ana menüye dönmek istediğinize emin misiniz?',
+              [
+                { text: 'Hayır', style: 'cancel' },
+                { text: 'Evet', onPress: () => {
+                  Alert.alert(
+                    'Son Onay',
+                    'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
+                    [
+                      { text: 'Hayır', style: 'cancel' },
+                      { text: 'Evet', onPress: () => { const top = (navigation.getParent() as any) || (navigation as any); top.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Main' }] })); } }
+                    ],
+                    { cancelable: false }
+                  );
+                } }
+              ],
+              { cancelable: false }
+            );
+          } catch (e) {
+            console.error('[SkillPresentation] main menu handler error', e);
+          }
+        }} />
         <View style={styles.content}>
           {/* Timer badge */}
           <LinearGradient
