@@ -501,35 +501,37 @@ export default function App() {
 
         {/* Sağ taraf - Seçili beceriler */}
         <View style={styles.skillsRightPanel}>
-          <View style={styles.modernPanelHeader}>
-            <View style={styles.panelIconBox}>
-              <Text style={styles.panelHeaderIcon}>✅</Text>
+          <ScrollView style={styles.selectedSkillsScrollView} contentContainerStyle={{ flexGrow: 1 }}>
+            <View style={styles.modernPanelHeader}>
+              <View style={styles.panelIconBox}>
+                <Text style={styles.panelHeaderIcon}>✅</Text>
+              </View>
+              <Text style={styles.modernPanelTitle}>Seçili Beceriler</Text>
+              <View style={styles.panelCountBadge}>
+                <Text style={styles.panelCountText}>{selectedSkills.length}/{MAX_SELECTED_SKILLS}</Text>
+              </View>
             </View>
-            <Text style={styles.modernPanelTitle}>Seçili Beceriler</Text>
-            <View style={styles.panelCountBadge}>
-              <Text style={styles.panelCountText}>{selectedSkills.length}/{MAX_SELECTED_SKILLS}</Text>
-            </View>
-          </View>
-          {selectedSkills.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.darkEmptyStateText}>
-                Sol taraftan becerileri seçin
-              </Text>
-            </View>
-          ) : (
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <DraggableSkillList
-                skills={selectedSkills.map(item => item.skill)}
-                onReorder={handleReorder}
-                onRemove={(skillToRemove) => {
-                  const skillToRemoveItem = selectedSkills.find(item => item.skill === skillToRemove);
-                  if (skillToRemoveItem) {
-                    removeSkill(skillToRemoveItem.id);
-                  }
-                }}
-              />
-            </GestureHandlerRootView>
-          )}
+            {selectedSkills.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Text style={styles.darkEmptyStateText}>
+                  Sol taraftan becerileri seçin
+                </Text>
+              </View>
+            ) : (
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <DraggableSkillList
+                  skills={selectedSkills.map(item => item.skill)}
+                  onReorder={handleReorder}
+                  onRemove={(skillToRemove) => {
+                    const skillToRemoveItem = selectedSkills.find(item => item.skill === skillToRemove);
+                    if (skillToRemoveItem) {
+                      removeSkill(skillToRemoveItem.id);
+                    }
+                  }}
+                />
+              </GestureHandlerRootView>
+            )}
+          </ScrollView>
         </View>
       </View>
     </SafeAreaView>
