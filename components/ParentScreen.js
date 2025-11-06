@@ -8,7 +8,9 @@ import {
   ActivityIndicator,
   Alert,
   ScrollView,
+  Platform,
 } from 'react-native';
+import MainMenuButton from '../src/components/MainMenuButton';
 
 export const ParentScreen = ({ setCurrentScreen, signInWithGoogle }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -37,16 +39,12 @@ export const ParentScreen = ({ setCurrentScreen, signInWithGoogle }) => {
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Centered global Ana Menü button (shared component) for this screen */}
+      <View style={{ pointerEvents: 'box-none' }}>
+        <MainMenuButton onPress={() => setCurrentScreen('main')} />
+      </View>
       <View style={styles.modernAuthHeader}>
-        <TouchableOpacity 
-          onPress={() => setCurrentScreen('main')} 
-          style={styles.modernBackButtonContainer}
-        >
-          <View style={styles.backIconWrapper}>
-            <Text style={styles.modernBackIcon}>←</Text>
-          </View>
-          <Text style={styles.modernBackText}>Ana Menü</Text>
-        </TouchableOpacity>
+        <View style={styles.placeholder} />
         <Text style={styles.modernAuthHeaderTitle}>Veli Paneli</Text>
         <View style={styles.placeholder} />
       </View>
@@ -173,6 +171,31 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 40,
+  },
+
+  // Centered main menu styles for screens using this component
+  globalMainMenuWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: Platform.OS === 'web' ? 36 : 28,
+    alignItems: 'center',
+    zIndex: 10000,
+    pointerEvents: 'box-none',
+  },
+  globalMainMenuButton: {
+    backgroundColor: 'rgba(66, 133, 244, 0.95)',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  globalMainMenuText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   modernAuthScrollView: {
     flex: 1,

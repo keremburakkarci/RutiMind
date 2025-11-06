@@ -9,11 +9,11 @@ import {
   StyleSheet,
   ScrollView,
   TextInput,
-  Image,
   Alert,
   Modal,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableFlatList from 'react-native-draggable-flatlist';
 import GlobalTopActions from '../../components/GlobalTopActions';
@@ -21,6 +21,8 @@ import HeaderTitle from '../../components/SharedHeader';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 import { reinforcerCategories, allReinforcers as defaultReinforcers } from '../../../data/reinforcersData';
+import { loadSelectedReinforcersForUser, saveSelectedReinforcersForUser } from '../../utils/userPersistence';
+import { useAuthStore } from '../../store/authStore';
 import { getAllReinforcers, insertReinforcer, updateReinforcer, deleteReinforcer as deleteReinforcerFromDB } from '../../services/database';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -102,6 +104,11 @@ const ReinforcersScreen: React.FC = () => {
   const [newReinforcerCategory, setNewReinforcerCategory] = useState<string | null>(reinforcerCategories?.[0]?.id || null);
   const [deleteModalVisible, setDeleteModalVisible] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name?: string } | null>(null);
+  const [isLoadingUserData, setIsLoadingUserData] = React.useState(false);
+  const [hasLoadedInitialData, setHasLoadedInitialData] = React.useState(false);
+  
+  // CRITICAL FIX: Track loaded user ID to prevent auto-save during user switch
+  const [loadedUserId, setLoadedUserId] = React.useState<string | null>(null);
 
   // Filled slots (compact list for drag & reorder)
   const filledSlots = React.useMemo(() => (
@@ -121,6 +128,140 @@ const ReinforcersScreen: React.FC = () => {
     loadReinforcers();
   }, []);
 
+  // Load selected slots when user changes (so selections are per-account)
+  const authUser = useAuthStore(state => state.user);
+  useEffect(() => {
+    let mounted = true;
+    const uid = authUser?.uid;
+    
+    console.log('[ReinforcersScreen] 🔄 Load effect triggered, user:', uid || 'NO USER');
+    
+    // CRITICAL: Check if user changed - if same user, don't reload!
+    if (uid === loadedUserId) {
+      console.log('[ReinforcersScreen] ⏭️ Same user, skipping reload');
+      return;
+    }
+    
+    setIsLoadingUserData(true);
+    setHasLoadedInitialData(false); // Reset on user change
+    console.log('[ReinforcersScreen] 🔒 Set isLoadingUserData=true, hasLoadedInitialData=false');
+    
+    const fn = async () => {
+      try {
+        console.log('[ReinforcersScreen] 📥 Starting load for user:', uid || 'NO USER');
+        
+        if (!uid) {
+          // No user: clear per-user slots
+          console.log('[ReinforcersScreen] ❌ No user, clearing slots');
+          setSelectedSlots(Array(MAX_SLOTS).fill(null));
+          if (mounted) {
+            console.log('[ReinforcersScreen] 🔓 Unlocking after no-user clear');
+            setLoadedUserId(null);
+            setIsLoadingUserData(false);
+            setHasLoadedInitialData(true);
+          }
+          return;
+        }
+
+        const saved = await loadSelectedReinforcersForUser(uid);
+        console.log('[ReinforcersScreen] 📦 Loaded data for user', uid, ':', saved);
+        
+        if (mounted) {
+          if (saved && Array.isArray(saved.selectedSlots)) {
+            // Normalize length
+            const arr = Array(MAX_SLOTS).fill(null);
+            for (let i = 0; i < Math.min(saved.selectedSlots.length, MAX_SLOTS); i++) {
+              const v = saved.selectedSlots[i];
+              if (v && typeof v === 'object' && v.id) arr[i] = v;
+            }
+            const count = arr.filter(x => x !== null).length;
+            console.log('[ReinforcersScreen] ✅ Setting', count, 'slots from saved data');
+            setSelectedSlots(arr as (Reinforcer | null)[]);
+          } else {
+            // No per-user saved selection: clear slots so we don't leak global state
+            console.log('[ReinforcersScreen] 🗑️ No saved data, clearing slots');
+            setSelectedSlots(Array(MAX_SLOTS).fill(null));
+          }
+          console.log('[ReinforcersScreen] 🔓 Unlocking after successful load');
+          setLoadedUserId(uid); // Mark this user as loaded
+          setIsLoadingUserData(false);
+          setHasLoadedInitialData(true);
+        }
+      } catch (e) {
+        console.warn('[ReinforcersScreen] ⚠️ load per-user slots failed', e);
+        if (mounted) {
+          console.log('[ReinforcersScreen] 🔓 Unlocking after error');
+          setLoadedUserId(uid || null);
+          setIsLoadingUserData(false);
+          setHasLoadedInitialData(true);
+        }
+      }
+    };
+    fn();
+    return () => { 
+      console.log('[ReinforcersScreen] 🧹 Cleanup: unmounting load effect');
+      mounted = false; 
+    };
+  }, [authUser, loadedUserId]);
+
+  // Debug: Log every selectedSlots change
+  useEffect(() => {
+    const count = selectedSlots.filter(s => s !== null).length;
+    console.log('[ReinforcersScreen] 📊 selectedSlots changed:', count, 'filled slots');
+  }, [selectedSlots]);
+
+  // Auto-persist selected slots per-user whenever they change
+  // This ensures selections are immediately saved as the user works
+  useEffect(() => {
+    console.log('[ReinforcersScreen] 💾 Auto-save effect triggered:', {
+      isLoadingUserData,
+      hasLoadedInitialData,
+      authUser: authUser?.uid,
+      loadedUserId,
+      slotsCount: selectedSlots.filter(s => s !== null).length
+    });
+    
+    // Don't save while we're loading user data (race condition prevention)
+    if (isLoadingUserData) {
+      console.log('[ReinforcersScreen] ❌ Skipping auto-save: still loading user data');
+      return;
+    }
+    
+    // Don't save until initial data load is complete
+    if (!hasLoadedInitialData) {
+      console.log('[ReinforcersScreen] ❌ Skipping auto-save: initial data not loaded yet');
+      return;
+    }
+    
+    // CRITICAL: Don't save if user changed but load hasn't completed yet!
+    if (authUser?.uid !== loadedUserId) {
+      console.log('[ReinforcersScreen] ❌ Skipping auto-save: user changed, waiting for load');
+      return;
+    }
+    
+    // CRITICAL FIX: Add debounce to prevent saving empty data during rapid load/unload cycles
+    const saveTimer = setTimeout(() => {
+      (async () => {
+        try {
+          const uid = authUser?.uid;
+          if (!uid) {
+            console.log('[ReinforcersScreen] ❌ Skipping auto-save: no user');
+            return;
+          }
+          
+          console.log('[ReinforcersScreen] ✅ Auto-saving slots for user:', uid);
+          const toSave = { selectedSlots };
+          await saveSelectedReinforcersForUser(uid, toSave);
+          console.log('[ReinforcersScreen] ✅ Auto-save completed');
+        } catch (e) {
+          console.warn('[ReinforcersScreen] auto-persist per-user slots failed', e);
+        }
+      })();
+    }, 150); // 150ms debounce to ensure load completes before save
+    
+    return () => clearTimeout(saveTimer);
+  }, [selectedSlots, authUser, loadedUserId, isLoadingUserData, hasLoadedInitialData]);
+
   // Filter reinforcers by search only (we'll group by category separately)
   const filteredReinforcers = React.useMemo(() => {
     if (!searchQuery.trim()) return reinforcers;
@@ -138,17 +279,10 @@ const ReinforcersScreen: React.FC = () => {
           if (saved) {
             const parsed = JSON.parse(saved) as Reinforcer[];
             const unique = dedupeReinforcers(parsed);
-            console.log('[ReinforcersScreen] loaded reinforcers from localStorage, count:', unique.length);
+            console.log('[ReinforcersScreen] 📚 Loaded reinforcers library from localStorage, count:', unique.length);
             setReinforcers(unique);
 
-            // Populate slots from saved data
-            const newSlots = Array(MAX_SLOTS).fill(null) as (Reinforcer | null)[];
-            unique.forEach(r => {
-              if (r.slot > 0 && r.slot <= MAX_SLOTS) {
-                newSlots[r.slot - 1] = r;
-              }
-            });
-            setSelectedSlots(newSlots);
+            // Do NOT populate slots here; slots are managed by per-user load effect
             return;
           }
 
@@ -165,11 +299,11 @@ const ReinforcersScreen: React.FC = () => {
             categoryId: (r as any).categoryId,
           }));
           setReinforcers(dedupeReinforcers(mockData as unknown as Reinforcer[]));
-          console.log('[ReinforcersScreen] set mock reinforcers count:', (mockData || []).length, mockData.slice(0, 6));
-          setSelectedSlots(Array(MAX_SLOTS).fill(null));
+          console.log('[ReinforcersScreen] 📚 Set mock reinforcers count:', (mockData || []).length);
+          // Do NOT populate slots here; slots are managed by per-user load effect
           return;
         } catch (e) {
-          console.warn('[ReinforcersScreen] Error reading localStorage, falling back to defaults', e);
+          console.warn('[ReinforcersScreen] ⚠️ Error reading localStorage, falling back to defaults', e);
           const mockData = defaultReinforcers.map(r => ({
             id: r.id,
             name: r.name,
@@ -181,7 +315,7 @@ const ReinforcersScreen: React.FC = () => {
             categoryId: (r as any).categoryId,
           }));
           setReinforcers(dedupeReinforcers(mockData as unknown as Reinforcer[]));
-          setSelectedSlots(Array(MAX_SLOTS).fill(null));
+          // Do NOT populate slots here; slots are managed by per-user load effect
           return;
         }
       }
@@ -216,27 +350,12 @@ const ReinforcersScreen: React.FC = () => {
         }));
         setReinforcers(dedupeReinforcers(reinforcersData));
       }
-      
-      // Populate slots based on loaded data
-      const reinforcersData = data.map(r => ({
-        id: r.id,
-        name: r.name,
-        imageUri: r.image_uri,
-        slot: r.slot,
-        order: r.order_index,
-        createdAt: new Date(r.created_at),
-        updatedAt: new Date(r.updated_at),
-      }));
-      
-      const newSlots = Array(MAX_SLOTS).fill(null);
-      reinforcersData.forEach(r => {
-        if (r.slot > 0 && r.slot <= MAX_SLOTS) {
-          newSlots[r.slot - 1] = r;
-        }
-      });
-      setSelectedSlots(newSlots);
+      // Do NOT populate slots from the database-level slot field. Slot
+      // assignments are user-specific and must be loaded via per-user
+      // persistence (`selectedReinforcers_<uid>`). The per-user load effect
+      // will handle loading slots when the user is authenticated.
     } catch (error) {
-      console.error('[ReinforcersScreen] Error loading reinforcers:', error);
+      console.error('[ReinforcersScreen] ⚠️ Error loading reinforcers:', error);
       Alert.alert(t('errors.title'), t('errors.generic'));
     }
   };
@@ -293,7 +412,8 @@ const ReinforcersScreen: React.FC = () => {
         console.log('[ReinforcersScreen] Added (web) reinforcer:', newReinforcer, 'total now', next.length);
         setReinforcers(next);
         try {
-          (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('reinforcers_web', JSON.stringify(next));
+          const cleaned = (next || []).map(n => ({ ...n, slot: 0 }));
+          (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('reinforcers_web', JSON.stringify(cleaned));
         } catch (e) {
           console.warn('[ReinforcersScreen] Failed to persist reinforcers to localStorage', e);
         }
@@ -348,16 +468,27 @@ const ReinforcersScreen: React.FC = () => {
       setSelectedSlots(newSlots);
 
       // If running on web, SQLite isn't available — update only local state
+      // IMPORTANT: do NOT persist slot assignments into the global `reinforcers_web`
+      // key because slots must be per-user. Persist slot assignments per-user instead.
       if (Platform.OS === 'web') {
-        const next = (reinforcers || []).map(r => r.id === reinforcer.id ? { ...r, slot: newSlot, updatedAt: new Date() } : r);
+        // Update local reinforcers array WITHOUT writing slot into the stored library
+        const next = (reinforcers || []).map(r => r.id === reinforcer.id ? { ...r, updatedAt: new Date() } : r);
         const uniqueNext = dedupeReinforcers(next);
-        console.log('[ReinforcersScreen] Updated reinforcers array (web), set slot to:', newSlot, 'for id:', reinforcer.id);
         setReinforcers(uniqueNext);
+
+        // Persist selected slots per-user (if signed in)
         try {
-          (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('reinforcers_web', JSON.stringify(uniqueNext));
+          const uid = useAuthStore.getState().user?.uid;
+          if (uid) {
+            await saveSelectedReinforcersForUser(uid, { selectedSlots: newSlots });
+          } else {
+            // No user: do not persist slot assignments into the global library storage.
+            // Keep slots ephemeral in local state only.
+          }
         } catch (e) {
-          console.warn('[ReinforcersScreen] Failed to persist slot update to localStorage', e);
+          console.warn('[ReinforcersScreen] Failed to persist per-user slot update', e);
         }
+
         safeHaptic('impact', Haptics.ImpactFeedbackStyle.Medium);
         return;
       }
@@ -385,6 +516,9 @@ const ReinforcersScreen: React.FC = () => {
   };
 
   // Remove from slot
+  // Keep removeFromSlot available for programmatic removals but avoid
+  // eslint warning when its UI button is intentionally removed.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const removeFromSlot = async (slotIndex: number) => {
     try {
       console.log('[ReinforcersScreen] removeFromSlot called with slotIndex:', slotIndex);
@@ -405,17 +539,24 @@ const ReinforcersScreen: React.FC = () => {
 
       // If web, skip DB updates and only update local state
       if (Platform.OS === 'web') {
-        const beforeCount = (reinforcers || []).length;
-        const next = (reinforcers || []).map(r => r.id === reinforcer.id ? { ...r, slot: 0, updatedAt: new Date() } : r);
+  const next = (reinforcers || []).map(r => r.id === reinforcer.id ? { ...r, updatedAt: new Date() } : r);
         const uniqueNext = dedupeReinforcers(next);
-        console.log('[ReinforcersScreen] reinforcers array updated (web):', { beforeCount, afterCount: uniqueNext.length, targetId: reinforcer.id });
         setReinforcers(uniqueNext);
+
+        // Persist selected slots per-user (if signed in)
         try {
-          (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('reinforcers_web', JSON.stringify(uniqueNext));
-          console.log('[ReinforcersScreen] persisted to localStorage');
+          const uid = useAuthStore.getState().user?.uid;
+          if (uid) {
+            const newSlots = [...selectedSlots];
+            newSlots[slotIndex] = null;
+            await saveSelectedReinforcersForUser(uid, { selectedSlots: newSlots });
+          } else {
+            // No user: do not persist slot removals to the global library storage.
+          }
         } catch (e) {
-          console.warn('[ReinforcersScreen] Failed to persist slot removal to localStorage', e);
+          console.warn('[ReinforcersScreen] Failed to persist per-user slot removal', e);
         }
+
         safeHaptic('impact', Haptics.ImpactFeedbackStyle.Light);
         return;
       }
@@ -442,6 +583,10 @@ const ReinforcersScreen: React.FC = () => {
       Alert.alert(t('errors.title'), t('errors.generic'));
     }
   };
+
+  // Reference the function to avoid unused-variable/compiler warnings
+  // (UI remove button was intentionally removed but keep function for programmatic use)
+  void removeFromSlot;
 
   // Open delete confirmation modal (shows same-style modal as add)
   const confirmDeleteReinforcer = (id: string, name?: string) => {
@@ -470,7 +615,9 @@ const ReinforcersScreen: React.FC = () => {
 
       // Persist on web
       try {
-        (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('reinforcers_web', JSON.stringify(next));
+        // Persist library only (strip slot assignments) so we don't store user-specific slots globally
+        const cleaned = next.map(n => ({ ...n, slot: 0 }));
+        (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('reinforcers_web', JSON.stringify(cleaned));
       } catch (e) {
         console.warn('[ReinforcersScreen] Failed to persist deletion to localStorage', e);
       }
@@ -482,17 +629,36 @@ const ReinforcersScreen: React.FC = () => {
     }
   };
 
-  // Save slots configuration
-  const handleSave = () => {
+  // Save slots configuration - now this just confirms to the user that data is saved
+  // The actual saving happens automatically in the useEffect above
+  const handleSave = async () => {
+    console.log('[ReinforcersScreen] handleSave called');
     const filledSlots = selectedSlots.filter(s => s !== null);
+    console.log('[ReinforcersScreen] Filled slots count:', filledSlots.length);
+    
     if (filledSlots.length === 0) {
-      Alert.alert(t('errors.validation'), t('reinforcers.noSlotsSelected'));
+      Alert.alert(
+        t('errors.validation', { defaultValue: 'Uyarı' }), 
+        t('reinforcers.noSlotsSelected', { defaultValue: 'Henüz pekiştireç seçmediniz.' })
+      );
+      return;
+    }
+
+    // Data is already saved automatically, just show confirmation
+    const uid = authUser?.uid;
+    if (!uid) {
+      Alert.alert(
+        t('errors.title', { defaultValue: 'Hata' }),
+        'Lütfen önce giriş yapın.'
+      );
       return;
     }
 
     safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
-    Alert.alert(t('success.title'), t('reinforcers.saved'));
-    // TODO: Save to database
+    Alert.alert(
+      t('success.title', { defaultValue: 'Bilgi' }), 
+      `Seçimleriniz otomatik olarak hesabınıza kaydedildi.\n\n${filledSlots.length} pekiştireç seçili.\n\nBu pekiştireçler öğrenci ekranında gösterilecektir.`
+    );
   };
 
   // Note: individual slot rendering for empty placeholders removed — we render only filled slots now
@@ -500,18 +666,27 @@ const ReinforcersScreen: React.FC = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* Global top actions (title left, main menu center, user right) */}
-  <GlobalTopActions title={t('reinforcers.title')} showBack />
+        <LinearGradient
+          colors={['#0a0a0a', '#1a1a2e', '#16213e']}
+          style={styles.gradientBackground}
+        >
+          {/* Global top actions (main menu center, user right) */}
+    <GlobalTopActions showBack />
 
-        {/* Spacer to avoid overlapping with absolute top bar */}
-        <View style={styles.headerSpacer} />
+          {/* Spacer to avoid overlapping with absolute top bar */}
+          <View style={styles.headerSpacer} />
 
-      {/* Split View */}
-      <View style={styles.splitView}>
+        {/* Split View */}
+        <View style={styles.splitView}>
         {/* Left Panel - Reinforcers Library */}
         <View style={styles.leftPanel}>
-          <View style={styles.leftPanelHeaderRow}>
-              <HeaderTitle style={{ fontSize: 20 }}>{t('reinforcers.library')}</HeaderTitle>
+          <View style={styles.panelHeader}>
+            <View style={styles.panelHeaderContent}>
+              <View style={styles.panelIconWrapper}>
+                <Text style={styles.panelIcon}>🎁</Text>
+              </View>
+              <Text style={styles.panelHeaderTitle}>{t('reinforcers.library')}</Text>
+            </View>
             <TouchableOpacity
                 style={styles.addButton}
                 onPress={() => {
@@ -646,11 +821,18 @@ const ReinforcersScreen: React.FC = () => {
 
         {/* Right Panel - Slots */}
         <View style={styles.rightPanel}>
-          <View style={styles.rightPanelHeader}>
-            <Text style={styles.rightPanelTitle}>{t('reinforcers.slots')}</Text>
-            <Text style={styles.rightPanelSubtitle}>
-              {selectedSlots.filter(s => s !== null).length}/{MAX_SLOTS}
-            </Text>
+          <View style={styles.panelHeader}>
+            <View style={styles.panelHeaderContent}>
+              <View style={styles.panelIconWrapper}>
+                <Text style={styles.panelIcon}>✓</Text>
+              </View>
+              <Text style={styles.panelHeaderTitle}>{t('reinforcers.slots')}</Text>
+            </View>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>
+                {selectedSlots.filter(s => s !== null).length}/{MAX_SLOTS}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.slotsList}>
@@ -662,7 +844,7 @@ const ReinforcersScreen: React.FC = () => {
               <DraggableFlatList
                 data={filledSlots}
                 keyExtractor={(item) => `${item.id}`}
-                onDragEnd={({ data }) => {
+                onDragEnd={async ({ data }) => {
                   try {
                     const newSlots = Array(MAX_SLOTS).fill(null);
                     data.forEach((r, idx) => {
@@ -678,16 +860,29 @@ const ReinforcersScreen: React.FC = () => {
                     const uniqueUpdated = dedupeReinforcers(updated);
                     setReinforcers(uniqueUpdated);
 
-                    // Persist DB updates on native and persist to localStorage on web
+                    // Persist DB updates on native. On web persist selected slots per-user
                     if (Platform.OS !== 'web') {
                       data.forEach((r, idx) => {
                         updateReinforcer(r.id, { slot: idx + 1, order_index: 0 }).catch(e => console.error(e));
                       });
                     } else {
                       try {
-                        (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('reinforcers_web', JSON.stringify(uniqueUpdated));
+                        const uid = useAuthStore.getState().user?.uid;
+                        if (uid) {
+                          const slotsArr = Array(MAX_SLOTS).fill(null);
+                          data.forEach((r, idx) => {
+                            slotsArr[idx] = { ...r, slot: idx + 1, updatedAt: new Date() } as Reinforcer;
+                          });
+                          await saveSelectedReinforcersForUser(uid, { selectedSlots: slotsArr });
+                        } else {
+                          // Fallback: persist library only (strip slot assignments) into reinforcers_web
+                          try {
+                            const cleaned = uniqueUpdated.map(u => ({ ...u, slot: 0 }));
+                            (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('reinforcers_web', JSON.stringify(cleaned));
+                          } catch (e) { /* ignore */ }
+                        }
                       } catch (e) {
-                        console.warn('[ReinforcersScreen] Failed to persist reordered slots to localStorage', e);
+                        console.warn('[ReinforcersScreen] Failed to persist reordered slots per-user', e);
                       }
                     }
 
@@ -710,39 +905,12 @@ const ReinforcersScreen: React.FC = () => {
                         <Text style={styles.slotNumberText}>{index + 1}</Text>
                       </View>
 
-                      {item.imageUri && (typeof item.imageUri === 'string') && (
-                        (item.imageUri.startsWith('http') || item.imageUri.startsWith('file') || item.imageUri.startsWith('data:')) ? (
-                          <Image source={{ uri: item.imageUri }} style={styles.slotImage} />
-                        ) : (
-                          <View style={[styles.slotImage, styles.emojiPlaceholder]}>
-                            <Text style={styles.emojiText}>{item.imageUri}</Text>
-                          </View>
-                        )
-                      )}
+                      {/* Image/emoji removed from slot display per UX request */}
 
                       <View style={styles.slotInfo}>
                         <Text style={styles.slotName} numberOfLines={1}>{item.name}</Text>
                       </View>
 
-                      <TouchableOpacity
-                        style={styles.removeSlotButton}
-                        onPress={() => {
-                          // Debug: log the item and index details
-                          console.log('[ReinforcersScreen] Remove button clicked for item:', { 
-                            id: item.id, 
-                            name: item.name, 
-                            slot: item.slot, 
-                            compactListIndex: index 
-                          });
-                          
-                          // Use item.slot - 1 (0-indexed) to find the correct slot in selectedSlots array
-                          const actualSlotIndex = item.slot > 0 ? item.slot - 1 : index;
-                          console.log('[ReinforcersScreen] Calculated actualSlotIndex:', actualSlotIndex, 'from item.slot:', item.slot);
-                          removeFromSlot(actualSlotIndex);
-                        }}
-                      >
-                        <Text style={styles.removeSlotButtonText}>✕</Text>
-                      </TouchableOpacity>
                     </TouchableOpacity>
                   );
                 }}
@@ -762,7 +930,9 @@ const ReinforcersScreen: React.FC = () => {
             onPress={handleSave}
             disabled={selectedSlots.every(s => s === null)}
           >
-            <Text style={styles.saveButtonText}>{t('reinforcers.save')}</Text>
+            <Text style={styles.saveButtonText}>
+              {t('reinforcers.save', { defaultValue: 'Öğrenci İçin Hazır ✓' })}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -873,6 +1043,7 @@ const ReinforcersScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+      </LinearGradient>
     </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -881,7 +1052,10 @@ const ReinforcersScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#000000',
+  },
+  gradientBackground: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -896,16 +1070,76 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
   },
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    paddingTop: 20,
+    borderBottomWidth: 2,
+    borderBottomColor: 'rgba(100, 126, 234, 0.3)',
+    backgroundColor: 'rgba(13, 27, 42, 0.5)',
+  },
+  panelHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  panelIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(100, 126, 234, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.3)',
+  },
+  panelIcon: {
+    fontSize: 20,
+  },
+  panelHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  countBadge: {
+    backgroundColor: 'rgba(100, 126, 234, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.3)',
+  },
+  countBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#667eea',
+  },
   addButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
-    backgroundColor: '#4285F4',
-    borderRadius: 8,
+    backgroundColor: 'rgba(100, 126, 234, 0.3)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.5)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   addButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 16,
     color: '#FFFFFF',
+    fontWeight: '700',
   },
   splitView: {
     flex: 1,
@@ -914,8 +1148,8 @@ const styles = StyleSheet.create({
   leftPanel: {
     flex: 1,
     borderRightWidth: 1,
-    borderRightColor: '#3D3D3D',
-    backgroundColor: '#1E1E1E',
+    borderRightColor: 'rgba(100, 126, 234, 0.2)',
+    backgroundColor: 'rgba(13, 27, 42, 0.4)',
   },
   panelTitle: {
     fontSize: 18,
@@ -952,14 +1186,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#2D2D2D',
+    backgroundColor: 'rgba(13, 27, 42, 0.6)',
     marginRight: 8,
     borderWidth: 1,
-    borderColor: '#3D3D3D',
+    borderColor: 'rgba(100, 126, 234, 0.3)',
   },
   categoryChipActive: {
-    backgroundColor: '#4285F4',
-    borderColor: '#4285F4',
+    backgroundColor: 'rgba(100, 126, 234, 0.4)',
+    borderColor: 'rgba(100, 126, 234, 0.6)',
   },
   categoryChipText: {
     fontSize: 13,
@@ -970,14 +1204,14 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   searchInput: {
-    backgroundColor: '#2D2D2D',
+    backgroundColor: 'rgba(13, 27, 42, 0.6)',
     color: '#FFFFFF',
     fontSize: 14,
     padding: 12,
     paddingRight: 40,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#3D3D3D',
+    borderColor: 'rgba(100, 126, 234, 0.3)',
   },
   categoriesList: {
     flex: 1,
@@ -991,7 +1225,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
   },
   categoryIcon: {
     fontSize: 24,
@@ -1012,10 +1248,12 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#3D3D3D',
+    backgroundColor: 'rgba(100, 126, 234, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.4)',
   },
   expandButtonText: {
     fontSize: 18,
@@ -1057,10 +1295,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     marginVertical: 2,
-    backgroundColor: '#2D2D2D',
-    borderRadius: 6,
+    backgroundColor: 'rgba(13, 27, 42, 0.5)',
+    borderRadius: 8,
     position: 'relative',
-    paddingRight: 68, // leave room for absolute-positioned delete button
+    paddingRight: 68,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
   },
   reinforcerItemClickable: {
     flex: 1,
@@ -1085,7 +1325,7 @@ const styles = StyleSheet.create({
   },
   reinforcerSlotBadge: {
     fontSize: 11,
-    color: '#4285F4',
+    color: '#667eea',
     marginTop: 4,
     fontWeight: '500',
   },
@@ -1114,7 +1354,7 @@ const styles = StyleSheet.create({
   },
   rightPanel: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: 'rgba(13, 27, 42, 0.4)',
   },
   rightPanelHeader: {
     flexDirection: 'row',
@@ -1123,7 +1363,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginTop: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#3D3D3D',
+    borderBottomColor: 'rgba(100, 126, 234, 0.2)',
   },
   rightPanelTitle: {
     fontSize: 18,
@@ -1142,19 +1382,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    backgroundColor: '#2D2D2D',
-    borderRadius: 8,
+    backgroundColor: 'rgba(13, 27, 42, 0.5)',
+    borderRadius: 12,
     marginBottom: 8,
     minHeight: 70,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
   },
   slotNumber: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#4285F4',
+    backgroundColor: 'rgba(102, 126, 234, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 1)',
   },
   slotNumberText: {
     fontSize: 14,

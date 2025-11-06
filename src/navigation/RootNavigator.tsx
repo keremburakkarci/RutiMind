@@ -13,7 +13,6 @@ import VideoSequenceScreen from '../screens/VideoSequenceScreen';
 import AuthNavigator from './AuthNavigator';
 import ParentStack from './ParentStack';
 import StudentNavigator from './StudentNavigator';
-import GlobalTopActions from '../components/GlobalTopActions';
 
 const Stack = createStackNavigator<RootStackParamList>();
 
@@ -36,8 +35,6 @@ const RootNavigator: React.FC = () => {
   <Stack.Screen name="ParentDashboard" component={ParentStack} />
         <Stack.Screen name="StudentFlow" component={StudentNavigator} />
       </Stack.Navigator>
-      {/* Global floating actions (appears on top-right across all screens) */}
-      <GlobalTopActions />
     </NavigationContainer>
   );
 };

@@ -1,7 +1,9 @@
 import React, { useEffect } from 'react';
-import { SafeAreaView, View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { RouteProp, useRoute } from '@react-navigation/native';
 import type { RootStackParamList } from '../navigation/types';
+import GlobalTopActions from '../components/GlobalTopActions';
 import VideoEmbed from '../components/VideoEmbed';
 
 type VideoSequenceRouteProp = RouteProp<RootStackParamList, 'VideoSequence'>;
@@ -27,44 +29,100 @@ const VideoSequenceScreen: React.FC = () => {
   }, []);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <Text style={styles.title}>{screenTitle}</Text>
-        </View>
-      </View>
+    <View style={styles.container}>
+      {/* Global top actions with back button */}
+      <GlobalTopActions title={screenTitle} showBack />
+      
+      <LinearGradient
+        colors={['#0a0a0a', '#1a1a2e', '#16213e']}
+        style={styles.gradientBackground}
+      >
+        {/* Spacer to avoid overlapping with absolute top bar */}
+        <View style={styles.headerSpacer} />
 
-      <ScrollView contentContainerStyle={styles.content}>
-        {steps.map((s, idx) => (
-          <View key={`${s.title}-${idx}`} style={styles.stepCard}>
-            <Text style={styles.stepTitle}>{`${idx + 1}. ${s.title}`}</Text>
-            <Text style={styles.stepDesc}>{`Bu adımda ${s.title} sürecinin eğitim videosu yer almaktadır.`}</Text>
-            {s.videoUrl ? (
-              <VideoEmbed embedSrc={s.videoUrl} title={s.title} />
-            ) : (
-              <View style={styles.placeholderBox}>
-                <Text style={styles.placeholderText}>Video yakında eklenecek.</Text>
-              </View>
-            )}
-          </View>
-        ))}
-      </ScrollView>
-    </SafeAreaView>
+        <ScrollView contentContainerStyle={styles.content}>
+          {steps.map((s, idx) => (
+            <View key={`${s.title}-${idx}`} style={styles.stepCard}>
+              <Text style={styles.stepTitle}>{`${idx + 1}. ${s.title}`}</Text>
+              <Text style={styles.stepDesc}>{`Bu adımda ${s.title} sürecinin eğitim videosu yer almaktadır.`}</Text>
+              {s.videoUrl ? (
+                <VideoEmbed embedSrc={s.videoUrl} title={s.title} />
+              ) : (
+                <View style={styles.placeholderBox}>
+                  <Text style={styles.placeholderText}>Video yakında eklenecek.</Text>
+                </View>
+              )}
+            </View>
+          ))}
+        </ScrollView>
+      </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1a1a1a' },
-  header: { padding: 16, borderBottomWidth: 1, borderBottomColor: '#2d2d2d', marginTop: 60, flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', position: 'relative' },
-  headerText: { flexDirection: 'column' },
-  title: { color: '#fff', fontSize: 28, fontWeight: '700', marginBottom: 6 },
-  back: { color: '#fff', marginRight: 12 },
-  content: { padding: 20 },
-  stepCard: { marginBottom: 20, backgroundColor: '#0b1220', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#21303f' },
-  stepTitle: { color: '#fff', fontSize: 16, fontWeight: '700', marginBottom: 12 },
-  stepDesc: { color: '#9ca3af', marginTop: 8 },
-  placeholderBox: { height: 200, borderRadius: 8, backgroundColor: '#111827', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
-  placeholderText: { color: '#9CA3AF' },
+  container: { 
+    flex: 1, 
+    backgroundColor: '#000000' 
+  },
+  gradientBackground: {
+    flex: 1,
+  },
+  headerSpacer: { 
+    height: 96 
+  },
+  content: { 
+    padding: 24,
+    maxWidth: 600,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  stepCard: { 
+    marginBottom: 20, 
+    backgroundColor: 'rgba(13, 27, 42, 0.8)',
+    padding: 20, 
+    borderRadius: 16, 
+    borderWidth: 1, 
+    borderColor: 'rgba(100, 126, 234, 0.2)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
+  },
+  stepTitle: { 
+    color: '#ffffff', 
+    fontSize: 18, 
+    fontWeight: '700', 
+    marginBottom: 12,
+    letterSpacing: 0.3,
+  },
+  stepDesc: { 
+    color: '#b8c1d9',
+    marginTop: 8,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  placeholderBox: { 
+    height: 200, 
+    borderRadius: 12, 
+    backgroundColor: 'rgba(17, 24, 39, 0.6)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.15)',
+  },
+  placeholderText: { 
+    color: '#9CA3AF',
+    fontSize: 14,
+  },
 });
 
 export default VideoSequenceScreen;

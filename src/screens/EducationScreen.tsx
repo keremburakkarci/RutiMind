@@ -1,122 +1,182 @@
 import React from 'react';
-import { SafeAreaView, View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import HeaderTitle from '../components/SharedHeader';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Platform } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import GlobalTopActions from '../components/GlobalTopActions';
 import { useNavigation } from '@react-navigation/native';
 import type { RootStackNavigationProp } from '../navigation/types';
-// BackButton intentionally not used here; GlobalTopActions provides back navigation
-// import BackButton from '../components/BackButton';
-import Svg, { Rect, Circle, Path } from 'react-native-svg';
 
 const EducationScreen: React.FC = () => {
   const navigation = useNavigation<RootStackNavigationProp>();
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.headerText}>
-          <HeaderTitle style={{ marginBottom: 6 }}>Eğitim İçerikleri</HeaderTitle>
+    <View style={styles.container}>
+      {/* Global top actions with back button */}
+      <GlobalTopActions title="Eğitim İçerikleri" showBack />
+      
+      <LinearGradient
+        colors={['#0a0a0a', '#1a1a2e', '#16213e']}
+        style={styles.gradientBackground}
+      >
+        {/* Spacer to avoid overlapping with absolute top bar */}
+        <View style={styles.headerSpacer} />
+        
+        <View style={styles.header}>
           <Text style={styles.subtitle}>Kendini yönetme stratejileri ve uygulamanın kullanımına yönelik eğitici videolar aşağıdadır</Text>
         </View>
-      </View>
 
-      <ScrollView contentContainerStyle={{ padding: 20 }}>
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() => navigation.navigate('SelfManagement' as any)}
-        >
-          <View style={styles.cardInner}>
-            <View style={styles.smallIconContainer}>
-              <Svg width={40} height={40} viewBox="0 0 84 64">
-                {/* colorful rounded square background */}
-                <Rect x="0" y="6" width="84" height="52" rx="12" fill="#2D6A96" />
-                {/* accent circle */}
-                <Circle cx="22" cy="30" r="10" fill="#FFD166" />
-                {/* checklist lines */}
-                <Path d="M36 22h30" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
-                <Path d="M36 32h22" stroke="#FFFFFF" strokeWidth="3" strokeLinecap="round" />
-                {/* check mark */}
-                <Path d="M20 34l5 5 10-12" stroke="#0F172A" strokeWidth="3" fill="none" strokeLinecap="round" strokeLinejoin="round" />
-              </Svg>
-            </View>
-            <View style={styles.cardTextWrap}>
-              <Text style={styles.cardTitle}>Kendini Yönetme Stratejileri Eğitimleri</Text>
-              <Text style={styles.cardLink}>Kendini yönetme stratejileri eğitim videolarına ulaşmak için tıklayın.</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
+        <ScrollView contentContainerStyle={styles.scrollContent}>
+          <TouchableOpacity
+            style={styles.buttonWrapper}
+            onPress={() => navigation.navigate('SelfManagement' as any)}
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={['#2D6A96', '#4facfe']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.button}
+            >
+              <View style={styles.buttonContent}>
+                <View style={styles.buttonIconWrapper}>
+                  <Text style={styles.buttonIcon}>📚</Text>
+                </View>
+                <View style={styles.buttonTextContainer}>
+                  <Text style={styles.buttonTitle}>Kendini Yönetme Stratejileri Eğitimleri</Text>
+                  <Text style={styles.buttonDescription}>Kendini yönetme stratejileri eğitim videolarına ulaşmak için tıklayın.</Text>
+                </View>
+                <Text style={styles.buttonArrow}>→</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.card}
-          onPress={() =>
-            navigation.navigate('VideoSequence' as any, {
-              screenTitle: 'Uygulama Eğitimi',
-              steps: [
-                { title: 'Uygulamaya giriş', videoUrl: null },
-                { title: 'Veli Paneline Giriş', videoUrl: null },
-                { title: 'Becerileri Belirleme', videoUrl: null },
-                { title: 'Pekişireçleri Belirleme', videoUrl: null },
-                { title: 'Gelişim Grafiğini Görüntüleme', videoUrl: null },
-                { title: 'Öğrenci moduna giriş', videoUrl: null },
-                { title: 'Örnek Video', videoUrl: null },
-              ],
-            })
-          }
-        >
-          <View style={styles.cardInner}>
-            <View style={styles.smallIconContainer}>
-              <Svg width={40} height={40} viewBox="0 0 84 64">
-                {/* colorful rounded square */}
-                <Rect x="0" y="6" width="84" height="52" rx="12" fill="#8B5CF6" />
-                {/* phone body */}
-                <Rect x="28" y="12" width="28" height="40" rx="6" fill="#0F172A" />
-                {/* screen */}
-                <Rect x="34" y="18" width="16" height="26" rx="3" fill="#10B981" />
-                {/* app dots */}
-                <Circle cx="40" cy="24" r="2" fill="#FBBF24" />
-                <Circle cx="48" cy="24" r="2" fill="#60A5FA" />
-                <Circle cx="44" cy="34" r="2" fill="#F472B6" />
-              </Svg>
-            </View>
-            <View style={styles.cardTextWrap}>
-              <Text style={styles.cardTitle}>Uygulama Eğitimi</Text>
-              <Text style={styles.cardLink}>Uygulama eğitimi videolarına ulaşmak için tıklayın.</Text>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </ScrollView>
-    </SafeAreaView>
+          <TouchableOpacity
+            style={styles.buttonWrapper}
+            onPress={() =>
+              navigation.navigate('VideoSequence' as any, {
+                screenTitle: 'Uygulama Eğitimi',
+                steps: [
+                  { title: 'Uygulamaya giriş', videoUrl: null },
+                  { title: 'Veli Paneline Giriş', videoUrl: null },
+                  { title: 'Becerileri Belirleme', videoUrl: null },
+                  { title: 'Pekişireçleri Belirleme', videoUrl: null },
+                  { title: 'Gelişim Grafiğini Görüntüleme', videoUrl: null },
+                  { title: 'Öğrenci moduna giriş', videoUrl: null },
+                  { title: 'Örnek Video', videoUrl: null },
+                ],
+              })
+            }
+            activeOpacity={0.9}
+          >
+            <LinearGradient
+              colors={['#8B5CF6', '#a78bfa']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.button}
+            >
+              <View style={styles.buttonContent}>
+                <View style={styles.buttonIconWrapper}>
+                  <Text style={styles.buttonIcon}>📱</Text>
+                </View>
+                <View style={styles.buttonTextContainer}>
+                  <Text style={styles.buttonTitle}>Uygulama Eğitimi</Text>
+                  <Text style={styles.buttonDescription}>Uygulama eğitimi videolarına ulaşmak için tıklayın.</Text>
+                </View>
+                <Text style={styles.buttonArrow}>→</Text>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </ScrollView>
+      </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#1E1E1E' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', padding: 16, borderBottomWidth: 1, borderBottomColor: '#2d2d2d', marginTop: 60 },
-  back: { color: '#fff', marginRight: 12 },
-  headerText: { flexDirection: 'column' },
-  title: { color: '#fff', fontSize: 28, fontWeight: '700', marginBottom: 6 },
-  subtitle: { color: '#9CA3AF', fontSize: 14, marginTop: 0 },
-  card: {
-    borderRadius: 24,
-    marginBottom: 20,
-    padding: 24,
-    backgroundColor: '#2c3e50',
-    borderWidth: 1,
-    borderColor: '#34495e',
+  container: {
+    flex: 1,
+    backgroundColor: '#000000',
   },
-  smallIconContainer: {
+  gradientBackground: {
+    flex: 1,
+  },
+  headerSpacer: { 
+    height: 96 
+  },
+  header: { 
+    alignItems: 'center',
+    paddingHorizontal: 24,
+    paddingTop: 20,
+    paddingBottom: 32,
+  },
+  subtitle: { 
+    fontSize: 14,
+    color: '#999999',
+    letterSpacing: 0.5,
+    textAlign: 'center',
+  },
+  scrollContent: {
+    padding: 24,
+    gap: 16,
+    maxWidth: 500,
+    width: '100%',
+    alignSelf: 'center',
+  },
+  buttonWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
+  button: {
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  buttonIconWrapper: {
     width: 56,
     height: 56,
-    borderRadius: 16,
-    backgroundColor: '#162B3A',
+    borderRadius: 28,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 18,
   },
-  cardInner: { flexDirection: 'row', alignItems: 'center' },
-  cardTextWrap: { flex: 1 },
-  cardTitle: { fontSize: 20, fontWeight: '700', color: '#ffffff', marginBottom: 6 },
-  cardDesc: { fontSize: 14, color: '#bdc3c7' },
-  cardLink: { fontSize: 13, color: '#9CA3AF', marginTop: 8 },
+  buttonIcon: {
+    fontSize: 28,
+  },
+  buttonTextContainer: {
+    flex: 1,
+  },
+  buttonTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#ffffff',
+    marginBottom: 4,
+    letterSpacing: 0.3,
+  },
+  buttonDescription: {
+    fontSize: 13,
+    color: 'rgba(255, 255, 255, 0.85)',
+    lineHeight: 18,
+  },
+  buttonArrow: {
+    fontSize: 24,
+    color: '#ffffff',
+    fontWeight: '700',
+  },
 });
 
 export default EducationScreen;

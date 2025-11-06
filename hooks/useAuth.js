@@ -7,6 +7,8 @@ import {
 } from 'firebase/auth';
 import { auth, googleProvider } from '../firebaseConfig';
 import { useAuthStore } from '../src/store/authStore';
+import { useSkillsStore } from '../src/store/skillsStore';
+import { loadSelectedReinforcersForUser } from '../src/utils/userPersistence';
 
 export const useAuth = () => {
   const [user, setUser] = useState(null);
@@ -14,11 +16,13 @@ export const useAuth = () => {
 
   useEffect(() => {
     let unsubscribe;
+    // Keep a reference to skills autosave unsubscribe so we can cleanup on sign-out
+    let skillsUnsub = null;
 
     const initAuth = async () => {
       try {
         // Auth state'i dinle
-        unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+  unsubscribe = onAuthStateChanged(auth, (currentUser) => {
           // Daha detaylı log: tam user objesini görebilmek için JSON.stringify
           try {
             console.debug('[useAuth] onAuthStateChanged fired, user=', currentUser ? { uid: currentUser.uid, email: currentUser.email } : null);
@@ -36,9 +40,53 @@ export const useAuth = () => {
               photoURL: currentUser.photoURL,
             });
             useAuthStore.getState().setLoading(false);
+            // Load per-user selected skills (web/local fallback)
+            try {
+              useSkillsStore.getState().loadForUser?.(currentUser.uid);
+            } catch (e) {
+              console.warn('[useAuth] load user skills failed', e);
+            }
+            // Subscribe to skills changes and persist them for this user
+            try {
+              // Unsubscribe previous if any
+              if (skillsUnsub) {
+                try { skillsUnsub(); } catch (e) { /* ignore */ }
+                skillsUnsub = null;
+              }
+              skillsUnsub = useSkillsStore.subscribe(
+                (s) => ({ selectedSkills: s.selectedSkills, waitDuration: s.waitDuration }),
+                async (next, prev) => {
+                  try {
+                    await useSkillsStore.getState().saveForUser?.(currentUser.uid);
+                  } catch (e) {
+                    console.warn('[useAuth] autosave skills failed', e);
+                  }
+                }
+              );
+            } catch (e) {
+              console.warn('[useAuth] could not subscribe skills autosave', e);
+            }
           } else {
             useAuthStore.getState().setUser(null);
             useAuthStore.getState().setLoading(false);
+            // Clear skills on sign out
+            try {
+              // Ensure selected skills are cleared immediately when signing out so
+              // the previous user's selection doesn't remain visible.
+              // Call clearSkills() for immediate UI update, and also call loadForUser(null)
+              // to keep the persistence helper consistent.
+              try { useSkillsStore.getState().clearSkills?.(); } catch (e) { /* ignore */ }
+              useSkillsStore.getState().loadForUser?.(null);
+            } catch (e) {
+              console.warn('[useAuth] clear user skills failed', e);
+            }
+            // Cleanup skills autosave subscription on sign-out
+            try {
+              if (skillsUnsub) {
+                skillsUnsub();
+                skillsUnsub = null;
+              }
+            } catch (e) { /* ignore */ }
           }
           setLoading(false);
         });

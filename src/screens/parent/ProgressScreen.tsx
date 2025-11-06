@@ -5,12 +5,12 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   StyleSheet,
   ScrollView,
   Modal,
   ActivityIndicator,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import GlobalTopActions from '../../components/GlobalTopActions';
 import {
@@ -224,20 +224,30 @@ const ProgressScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4285F4" />
-          <Text style={styles.loadingText}>{t('progress.loading')}</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <LinearGradient
+          colors={['#0a0a0a', '#1a1a2e', '#16213e']}
+          style={styles.gradientBackground}
+        >
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#4285F4" />
+            <Text style={styles.loadingText}>{t('progress.loading')}</Text>
+          </View>
+        </LinearGradient>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Global top actions + spacer */}
-  <GlobalTopActions title={t('progress.title')} showBack />
-      <View style={styles.headerSpacer}>
+      <GlobalTopActions title={t('progress.title')} showBack />
+      
+      <LinearGradient
+        colors={['#0a0a0a', '#1a1a2e', '#16213e']}
+        style={styles.gradientBackground}
+      >
+        <View style={styles.headerSpacer}>
         {/* Date Range Selector (moved below top bar) */}
         <View style={styles.dateRangeSelector}>
           <TouchableOpacity
@@ -344,7 +354,8 @@ const ProgressScreen: React.FC = () => {
 
       {/* Detail Modal */}
       {renderDetailModal()}
-    </SafeAreaView>
+      </LinearGradient>
+    </View>
   );
 };
 
@@ -367,7 +378,10 @@ const StatCard: React.FC<{ label: string; value: string; color: string }> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#000000',
+  },
+  gradientBackground: {
+    flex: 1,
   },
   header: {
     padding: 20,

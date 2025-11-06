@@ -18,6 +18,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import DraggableSkillList from './components/DraggableSkillList';
 import { useAuth } from './hooks/useAuth';
 import { skillCategories, MAX_SELECTED_SKILLS } from './data/skillsData';
+import MainMenuButton from './src/components/MainMenuButton';
 
 // Small helper to produce platform-appropriate shadow styles.
 // On web we return a boxShadow string, on native we return the usual shadow* props.
@@ -171,6 +172,8 @@ export default function App() {
 
     return (
       <SafeAreaView style={styles.darkContainer}>
+        {/* Global centered Ana Menü button (shared component) */}
+        <MainMenuButton onPress={() => { logout(); setCurrentScreen('main'); }} />
         <View style={styles.modernStudentHeader}>
           <TouchableOpacity
             style={styles.studentBackButton}
@@ -233,14 +236,8 @@ export default function App() {
       <SafeAreaView style={styles.darkContainer}>
         {/* Üst Bar */}
         <View style={styles.parentTopBar}>
-          {/* Centered Ana Menü button for consistency with other Parent screens */}
-          <TouchableOpacity 
-            onPress={() => setCurrentScreen('main')} 
-            style={styles.parentMainButton}
-            accessibilityLabel="go-to-main"
-          >
-            <Text style={styles.parentMainText}>Ana Menü</Text>
-          </TouchableOpacity>
+          {/* Centered Ana Menü button (shared) */}
+          <MainMenuButton onPress={() => setCurrentScreen('main')} />
         </View>
         
         <ScrollView style={styles.parentScrollView} contentContainerStyle={styles.parentScrollContent}>
@@ -581,16 +578,8 @@ export default function App() {
             <Text style={styles.dashboardHeaderSubtitle}>{user?.email}</Text>
           </View>
           
-          <TouchableOpacity 
-            style={styles.dashboardHomeButton}
-            onPress={() => {
-              logout();
-              setCurrentScreen('main');
-            }}
-          >
-            <Text style={styles.dashboardHomeIcon}>🏠</Text>
-            <Text style={styles.dashboardHomeText}>Ana Menü</Text>
-          </TouchableOpacity>
+          {/* right-side placeholder - global main menu placed above as centered button */}
+          <View style={styles.placeholder} />
         </View>
 
         {/* Content */}
@@ -1967,6 +1956,30 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 15,
     fontWeight: '700',
+  },
+  // Centered global main menu wrapper for some screens
+  globalMainMenuWrapper: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: Platform.OS === 'web' ? 36 : 28,
+    alignItems: 'center',
+    zIndex: 10000,
+    pointerEvents: 'box-none',
+  },
+  globalMainMenuButton: {
+    backgroundColor: 'rgba(66, 133, 244, 0.95)',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  globalMainMenuText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   parentScrollView: {
     flex: 1,

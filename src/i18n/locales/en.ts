@@ -30,6 +30,8 @@ export default {
     education: 'Education Content',
     educationDesc: 'Learn and explore',
     version: 'RutiMind v2.0',
+    signOut: 'Sign Out',
+    signOutConfirm: 'Are you sure you want to sign out?',
   },
   
   // Authentication
@@ -131,11 +133,16 @@ export default {
     readySubtitle: 'When you\'re ready to start completing your skills, click "Yes"!',
     readyYes: 'Yes, Let\'s Start!',
     readyNo: 'No, Back to Main Menu',
-    waitingTitle: 'Waiting...',
-    waitingSubtitle: 'Starting in {{seconds}} seconds',
+  waitingTitle: 'Waiting...',
+  // Use a formatted time string (e.g. 4:53) instead of raw seconds.
+  waitingSubtitle: 'Starting in {{time}}',
     skillQuestion: 'Did you do this?',
     respond: 'Respond',
-    timeRemaining: '{{seconds}} seconds remaining',
+  timeRemaining: '{{seconds}} seconds remaining',
+  // Hint shown under the timer while waiting
+  waitingHint: 'Stay ready — the first skill will start shortly.',
+  // Dev-only testing button label (visible in development)
+  testingButton: 'Test: 3s (long press = reset)',
     sessionComplete: 'Session Complete!',
     sessionCompleteMessage: 'Congratulations! You completed all skills.',
     backToMenu: 'Back to Main Menu',

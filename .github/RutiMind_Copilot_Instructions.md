@@ -238,10 +238,18 @@ After login, parent sees **three main tabs**:
 - The timing between skills must strictly follow the parent’s configuration.  
   Use a **monotonic clock** to avoid drift.
 - Example:
-  - Wait: 5 minutes  
-  - Skill 1: 4 minutes  
-  - Skill 2: 7 minutes  
-  → Skill 1 appears at minute 5, Skill 2 at minute 12.
+  - Important: the number entered next to each skill is an interval (in minutes)
+    that indicates how long after the *previous event* (the initial Wait period
+    or the previous skill) this skill should be presented. These are not
+    cumulative "absolute" times.
+
+  - Example (new semantics):
+    - Wait: 5 minutes
+    - Skill 1: 4 minutes (means: 4 minutes AFTER Skill 1 until Skill 2 appears)
+    - Skill 2: 7 minutes (means: 7 minutes AFTER Skill 2 until Skill 3 appears)
+    → Skill 1 appears immediately after the Wait period at minute 5.
+      Skill 2 appears at minute 5 + 4 = minute 9.
+      Skill 3 appears at minute 9 + 7 = minute 16.
 
 ---
 
