@@ -5,9 +5,10 @@ import {
   View,
   Text,
   TouchableOpacity,
-  SafeAreaView,
   StyleSheet,
+  Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation } from '@react-navigation/native';
 import type { ReadyScreenNavigationProp } from '../../navigation/types';
 import { useTranslation } from 'react-i18next';
@@ -27,36 +28,66 @@ const ReadyScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.content}>
-        <Text style={styles.emoji}>🎯</Text>
-        <Text style={styles.title}>{t('student.readyTitle')}</Text>
-        <Text style={styles.subtitle}>{t('student.readySubtitle')}</Text>
-        
-        <View style={styles.buttonsContainer}>
-          <TouchableOpacity
-            style={[styles.button, styles.yesButton]}
-            onPress={handleYes}
+    <View style={styles.container}>
+      <LinearGradient
+        colors={['#0a0a0a', '#1a1a2e', '#16213e']}
+        style={styles.gradientBackground}
+      >
+        <View style={styles.content}>
+          <LinearGradient
+            colors={['#2ECC71', '#27AE60']}
+            style={styles.emojiGradient}
           >
-            <Text style={styles.buttonText}>{t('student.readyYes')}</Text>
-          </TouchableOpacity>
+            <Text style={styles.emoji}>🎯</Text>
+          </LinearGradient>
           
-          <TouchableOpacity
-            style={[styles.button, styles.noButton]}
-            onPress={handleNo}
-          >
-            <Text style={styles.buttonText}>{t('student.readyNo')}</Text>
-          </TouchableOpacity>
+          <Text style={styles.title}>{t('student.readyTitle')}</Text>
+          <Text style={styles.subtitle}>{t('student.readySubtitle')}</Text>
+          
+          <View style={styles.buttonsContainer}>
+            <TouchableOpacity
+              style={styles.buttonWrapper}
+              onPress={handleYes}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#2ECC71', '#27AE60']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.button}
+              >
+                <Text style={styles.buttonText}>{t('student.readyYes')}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={styles.buttonWrapper}
+              onPress={handleNo}
+              activeOpacity={0.9}
+            >
+              <LinearGradient
+                colors={['#E74C3C', '#C0392B']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.button}
+              >
+                <Text style={styles.buttonText}>{t('student.readyNo')}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </SafeAreaView>
+      </LinearGradient>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#000000',
+  },
+  gradientBackground: {
+    flex: 1,
   },
   content: {
     flex: 1,
@@ -64,9 +95,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 32,
   },
+  emojiGradient: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 32,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#2ECC71',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.5,
+        shadowRadius: 20,
+      },
+      android: {
+        elevation: 12,
+      },
+    }),
+  },
   emoji: {
     fontSize: 64,
-    marginBottom: 24,
   },
   title: {
     fontSize: 32,
@@ -84,24 +133,35 @@ const styles = StyleSheet.create({
   },
   buttonsContainer: {
     width: '100%',
+    maxWidth: 400,
     gap: 16,
   },
+  buttonWrapper: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+      },
+      android: {
+        elevation: 8,
+      },
+    }),
+  },
   button: {
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 32,
-    borderRadius: 12,
+    borderRadius: 16,
     alignItems: 'center',
   },
-  yesButton: {
-    backgroundColor: '#2ECC71',
-  },
-  noButton: {
-    backgroundColor: '#E74C3C',
-  },
   buttonText: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#FFFFFF',
+    letterSpacing: 0.5,
   },
 });
 

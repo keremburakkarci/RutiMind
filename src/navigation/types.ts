@@ -37,6 +37,12 @@ export type StudentFlowStackParamList = {
   SkillPresentation: { 
     skills: SelectedSkill[];
     currentIndex: number;
+  // schedule: array of events with scheduledTime (ms from session start)
+  // Each event also includes intervalAfterPrevMs which is how long (ms)
+  // after that skill the next skill should start.
+  schedule?: Array<{ skillId: string; skillName: string; scheduledTime: number; intervalAfterPrevMs: number }>;
+    // monotonic session start timestamp (Date.now() when session started)
+    sessionStartTime?: number;
   };
   SessionComplete: undefined;
 };

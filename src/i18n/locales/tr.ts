@@ -30,6 +30,8 @@ export default {
     education: 'Eğitim İçerikleri',
     educationDesc: 'Öğren ve keşfet',
     version: 'RutiMind v2.0',
+    signOut: 'Çıkış Yap',
+    signOutConfirm: 'Çıkış yapmak istediğinizden emin misiniz?',
   },
   
   // Authentication
@@ -131,11 +133,16 @@ export default {
     readySubtitle: 'Becerilerini tamamlamaya başlamak için hazır olduğunda "Evet" butonuna tıkla!',
     readyYes: 'Evet, Başlayalım!',
     readyNo: 'Hayır, Ana Menüye Dön',
-    waitingTitle: 'Bekleniyor...',
-    waitingSubtitle: '{{seconds}} saniye sonra başlayacak',
+  waitingTitle: 'Bekleniyor...',
+  // Use a formatted time string (e.g. 4:53) instead of raw seconds.
+  waitingSubtitle: '{{time}} sonra başlayacak',
     skillQuestion: 'Bunu yaptın mı?',
     respond: 'Yanıtla',
-    timeRemaining: '{{seconds}} saniye kaldı',
+  timeRemaining: '{{seconds}} saniye kaldı',
+  // Hint shown under the timer while waiting
+  waitingHint: 'Hazır ol! İlk beceri kısa süre içinde başlayacak.',
+  // Dev-only testing button label (visible in development)
+  testingButton: 'Test: 3s (uzun bas = sıfırla)',
     sessionComplete: 'Oturum Tamamlandı!',
     sessionCompleteMessage: 'Tebrikler! Tüm becerileri tamamladın.',
     backToMenu: 'Ana Menüye Dön',

@@ -15,6 +15,7 @@ import {
   Modal,
   Platform,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import GlobalTopActions from '../../components/GlobalTopActions';
 import HeaderTitle from '../../components/SharedHeader';
@@ -28,6 +29,7 @@ import * as ImageManipulator from 'expo-image-manipulator';
 import * as Haptics from 'expo-haptics';
 import { skillCategories, MAX_SELECTED_SKILLS } from '../../../data/skillsData.js';
 import { useSkillsStore } from '../../store/skillsStore';
+import { useAuthStore } from '../../store/authStore';
 import type { SelectedSkill } from '../../types';
 
 const SkillsScreen: React.FC = () => {
@@ -320,24 +322,55 @@ const SkillsScreen: React.FC = () => {
     setAddModalVisible(false);
   };
 
-  // Save validation
-  const onSave = () => {
+  // Save validation - Skills are auto-saved via store subscription
+  // This button validates and confirms to user that data is ready for student mode
+  const onSave = async () => {
+    console.log('[SkillsScreen] onSave called');
+    console.log('[SkillsScreen] Selected skills count:', selectedSkills.length);
+    
+    if (selectedSkills.length === 0) {
+      Alert.alert(
+        t('errors.validation', { defaultValue: 'Uyarı' }),
+        'Henüz beceri seçmediniz.'
+      );
+      return;
+    }
+    
     // Check all skills have images
     const skillsWithoutImage = selectedSkills.filter((s: SelectedSkill) => !s.imageUri);
     if (skillsWithoutImage.length > 0) {
-      Alert.alert(t('errors.validation'), t('skills.errors.missingImages'));
+      Alert.alert(
+        t('errors.validation', { defaultValue: 'Eksik Bilgi' }), 
+        t('skills.errors.missingImages', { defaultValue: 'Lütfen tüm becerilere resim ekleyin.' })
+      );
       return;
     }
 
     // Check total duration
     const total = selectedSkills.reduce((sum: number, s: SelectedSkill) => sum + s.duration, 0);
     if (total > 120) {
-      Alert.alert(t('errors.validation'), t('skills.errors.totalDurationExceeded'));
+      Alert.alert(
+        t('errors.validation', { defaultValue: 'Uyarı' }), 
+        t('skills.errors.totalDurationExceeded', { defaultValue: 'Toplam süre 120 dakikayı geçemez.' })
+      );
       return;
     }
 
-  safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
-    Alert.alert(t('success.title'), t('skills.saved'));
+    const uid = useAuthStore.getState().user?.uid;
+    if (!uid) {
+      Alert.alert(
+        t('errors.title', { defaultValue: 'Hata' }),
+        'Lütfen önce giriş yapın.'
+      );
+      return;
+    }
+
+    // Data is already auto-saved via store subscription, just show confirmation
+    safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
+    Alert.alert(
+      t('success.title', { defaultValue: 'Hazır!' }), 
+      `Seçimleriniz otomatik olarak hesabınıza kaydedildi.\n\n${selectedSkills.length} beceri seçili.\nToplam süre: ${total} dakika.\n\nBu beceriler öğrenci ekranında gösterilecektir.`
+    );
   };
 
   // Render Wait Time row (fixed, not draggable)
@@ -431,18 +464,27 @@ const SkillsScreen: React.FC = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        {/* Global top actions (title left, main menu center, user right) */}
-  <GlobalTopActions title={t('skills.title')} showBack />
+        <LinearGradient
+          colors={['#0a0a0a', '#1a1a2e', '#16213e']}
+          style={styles.gradientBackground}
+        >
+          {/* Global top actions (main menu center, user right) */}
+    <GlobalTopActions showBack />
 
-        {/* Spacer to avoid overlapping with absolute top bar */}
-        <View style={styles.headerSpacer} />
+          {/* Spacer to avoid overlapping with absolute top bar */}
+          <View style={styles.headerSpacer} />
 
-      {/* Split View */}
-      <View style={styles.splitView}>
+        {/* Split View */}
+        <View style={styles.splitView}>
         {/* Left Panel - Skill Categories */}
         <View style={styles.leftPanel}>
-          <View style={styles.leftPanelHeaderRow}>
-            <HeaderTitle style={{ fontSize: 20 }}>Beceri Listesi</HeaderTitle>
+          <View style={styles.panelHeader}>
+            <View style={styles.panelHeaderContent}>
+              <View style={styles.panelIconWrapper}>
+                <Text style={styles.panelIcon}>📚</Text>
+              </View>
+              <Text style={styles.panelHeaderTitle}>Beceri Listesi</Text>
+            </View>
             <TouchableOpacity
               style={styles.addButton}
               onPress={() => {
@@ -550,11 +592,18 @@ const SkillsScreen: React.FC = () => {
 
         {/* Right Panel - Selected Skills */}
         <View style={styles.rightPanel}>
-          <View style={styles.rightPanelHeader}>
-            <Text style={styles.rightPanelTitle}>{t('skills.selectedSkills')}</Text>
-            <Text style={styles.rightPanelSubtitle}>
-              {selectedSkills.length}/{MAX_SELECTED_SKILLS}
-            </Text>
+          <View style={styles.panelHeader}>
+            <View style={styles.panelHeaderContent}>
+              <View style={styles.panelIconWrapper}>
+                <Text style={styles.panelIcon}>✓</Text>
+              </View>
+              <Text style={styles.panelHeaderTitle}>{t('skills.selectedSkills')}</Text>
+            </View>
+            <View style={styles.countBadge}>
+              <Text style={styles.countBadgeText}>
+                {selectedSkills.length}/{MAX_SELECTED_SKILLS}
+              </Text>
+            </View>
           </View>
 
           <View style={styles.selectedSkillsList}>
@@ -593,7 +642,9 @@ const SkillsScreen: React.FC = () => {
             onPress={onSave}
             disabled={selectedSkills.length === 0}
           >
-            <Text style={styles.saveButtonText}>{t('skills.save')}</Text>
+            <Text style={styles.saveButtonText}>
+              {t('skills.save', { defaultValue: 'Öğrenci İçin Hazır ✓' })}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -730,6 +781,7 @@ const SkillsScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+      </LinearGradient>
     </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -738,7 +790,10 @@ const SkillsScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: '#000000',
+  },
+  gradientBackground: {
+    flex: 1,
   },
   header: {
     padding: 20,
@@ -747,6 +802,53 @@ const styles = StyleSheet.create({
   },
   headerSpacer: {
     height: 96,
+  },
+  panelHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 16,
+    paddingTop: 20,
+    borderBottomWidth: 2,
+    borderBottomColor: 'rgba(100, 126, 234, 0.3)',
+    backgroundColor: 'rgba(13, 27, 42, 0.5)',
+  },
+  panelHeaderContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  panelIconWrapper: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(100, 126, 234, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.3)',
+  },
+  panelIcon: {
+    fontSize: 20,
+  },
+  panelHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    letterSpacing: 0.5,
+  },
+  countBadge: {
+    backgroundColor: 'rgba(100, 126, 234, 0.2)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.3)',
+  },
+  countBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#667eea',
   },
   panelTitle: {
     fontSize: 18,
@@ -791,18 +893,18 @@ const styles = StyleSheet.create({
   leftPanel: {
     flex: 1,
     borderRightWidth: 1,
-    borderRightColor: '#3D3D3D',
-    backgroundColor: '#1E1E1E',
+    borderRightColor: 'rgba(100, 126, 234, 0.2)',
+    backgroundColor: 'rgba(13, 27, 42, 0.4)',
   },
   searchInput: {
-    backgroundColor: '#2D2D2D',
+    backgroundColor: 'rgba(13, 27, 42, 0.6)',
     color: '#FFFFFF',
     fontSize: 14,
     padding: 12,
     paddingRight: 40,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#3D3D3D',
+    borderColor: 'rgba(100, 126, 234, 0.3)',
   },
   categoriesList: {
     flex: 1,
@@ -816,7 +918,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginHorizontal: 16,
     marginVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
   },
   categoryIcon: {
     fontSize: 24,
@@ -837,10 +941,12 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#3D3D3D',
+    backgroundColor: 'rgba(100, 126, 234, 0.3)',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.4)',
   },
   expandButtonText: {
     fontSize: 18,
@@ -848,15 +954,28 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   addButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: '#4285F4',
-    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(100, 126, 234, 0.3)',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.5)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#667eea',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
   },
   addButtonText: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#FFFFFF',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   skillsList: {
     paddingHorizontal: 16,
@@ -867,10 +986,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     marginVertical: 2,
-    backgroundColor: '#2D2D2D',
-    borderRadius: 6,
+    backgroundColor: 'rgba(13, 27, 42, 0.5)',
+    borderRadius: 8,
     position: 'relative',
-    paddingRight: 68, // leave room for delete button
+    paddingRight: 68,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
   },
   skillItemClickable: {
     flex: 1,
@@ -886,7 +1007,7 @@ const styles = StyleSheet.create({
   },
   addIcon: {
     fontSize: 20,
-    color: '#4285F4',
+    color: '#667eea',
     fontWeight: 'bold',
   },
   deleteLibraryButton: {
@@ -903,13 +1024,13 @@ const styles = StyleSheet.create({
   },
   rightPanel: {
     flex: 1,
-    backgroundColor: '#1E1E1E',
+    backgroundColor: 'rgba(13, 27, 42, 0.4)',
   },
   rightPanelHeader: {
     padding: 16,
     marginTop: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#3D3D3D',
+    borderBottomColor: 'rgba(100, 126, 234, 0.2)',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -930,35 +1051,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#2D2D2D',
+    backgroundColor: 'rgba(13, 27, 42, 0.6)',
     marginHorizontal: 12,
     marginTop: 12,
     marginBottom: 8,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 2,
-    borderColor: '#4285F4',
+    borderColor: 'rgba(100, 126, 234, 0.4)',
   },
   selectedSkillItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
     minHeight: 70,
-    backgroundColor: '#2D2D2D',
+    backgroundColor: 'rgba(13, 27, 42, 0.5)',
     marginHorizontal: 12,
     marginVertical: 4,
-    borderRadius: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
   },
   selectedSkillItemActive: {
-    backgroundColor: '#3D3D3D',
+    backgroundColor: 'rgba(100, 126, 234, 0.2)',
+    borderColor: 'rgba(100, 126, 234, 0.4)',
   },
   skillOrderBadge: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#4285F4',
+    backgroundColor: 'rgba(102, 126, 234, 0.8)',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 1)',
   },
   skillOrderText: {
     fontSize: 14,
@@ -979,9 +1105,11 @@ const styles = StyleSheet.create({
   skillImagePlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#3D3D3D',
+    backgroundColor: 'rgba(13, 27, 42, 0.6)',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(100, 126, 234, 0.2)',
   },
   skillImagePlaceholderText: {
     fontSize: 24,

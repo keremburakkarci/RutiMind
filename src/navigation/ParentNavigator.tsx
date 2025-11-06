@@ -21,14 +21,14 @@ const ParentNavigator: React.FC = () => {
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#2D2D2D',
-          borderTopColor: '#3D3D3D',
-          borderTopWidth: 1,
+          backgroundColor: 'rgba(13, 27, 42, 0.95)',
+          borderTopColor: 'rgba(100, 126, 234, 0.3)',
+          borderTopWidth: 2,
           paddingBottom: 8,
           paddingTop: 8,
           height: 65,
         },
-        tabBarActiveTintColor: '#4285F4',
+        tabBarActiveTintColor: '#667eea',
         tabBarInactiveTintColor: '#9CA3AF',
         tabBarLabelStyle: {
           fontSize: 12,

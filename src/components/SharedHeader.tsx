@@ -1,5 +1,5 @@
 import React from 'react';
-import { Text, StyleSheet, TextProps, Platform } from 'react-native';
+import { Text, StyleSheet, TextProps } from 'react-native';
 
 type Props = TextProps & {
   children: React.ReactNode;
@@ -14,12 +14,8 @@ export const HeaderTitle: React.FC<Props> = ({ children, style, ...props }) => {
 };
 
 export const MainMenuStyles = StyleSheet.create({
-  // same baseline as GlobalTopActions mainMenuButton/mainMenuText but exposed for reuse
+  // non-positional main menu button styles (screens can center via their container)
   mainMenuButton: {
-    position: 'absolute',
-    left: '50%',
-    transform: [{ translateX: -60 }],
-    top: Platform.OS === 'web' ? 36 : 28,
     backgroundColor: 'rgba(66, 133, 244, 0.95)',
     paddingVertical: 12,
     paddingHorizontal: 24,
