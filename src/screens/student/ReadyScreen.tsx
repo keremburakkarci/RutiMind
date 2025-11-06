@@ -15,7 +15,6 @@ import { useTranslation } from 'react-i18next';
 import { useSkillsStore } from '../../store/skillsStore';
 import MainMenuButton from '../../components/MainMenuButton';
 import { Alert } from 'react-native';
-import { useAuth } from '../../../hooks/useAuth';
 
 const ReadyScreen: React.FC = () => {
   const navigation = useNavigation<ReadyScreenNavigationProp>();
@@ -30,20 +29,17 @@ const ReadyScreen: React.FC = () => {
     navigation.goBack();
   };
 
-  const { logout } = useAuth();
-
   const handleMainMenuPress = async () => {
     try {
       console.debug('[ReadyScreen] main menu pressed');
       // Web: use native confirm for a more reliable UX in browsers
         if (Platform.OS === 'web' && typeof (globalThis as any).confirm === 'function') {
-        const ok1 = (globalThis as any).confirm('Ana menüye dönmek istediğinize emin misiniz?');
-        console.debug('[ReadyScreen] web confirm1 result:', ok1);
-        if (!ok1) return;
-        const ok2 = (globalThis as any).confirm('Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.');
-        console.debug('[ReadyScreen] web confirm2 result:', ok2);
-        if (!ok2) return;
-        await logout();
+          const ok1 = (globalThis as any).confirm('Ana menüye dönmek istediğinize emin misiniz?');
+          console.debug('[ReadyScreen] web confirm1 result:', ok1);
+          if (!ok1) return;
+          const ok2 = (globalThis as any).confirm('Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.');
+          console.debug('[ReadyScreen] web confirm2 result:', ok2);
+          if (!ok2) return;
         // Reset navigation to root Main to ensure we land on the designed MainScreen
         const topNav = (navigation.getParent() as any) || (navigation as any);
         console.debug('[ReadyScreen] dispatching reset to Main on topNav');
@@ -64,7 +60,7 @@ const ReadyScreen: React.FC = () => {
               'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
               [
                 { text: 'Hayır', style: 'cancel', onPress: () => console.debug('[ReadyScreen] second alert cancelled (no)') },
-                  { text: 'Evet', onPress: async () => { console.debug('[ReadyScreen] second alert confirmed - logging out'); await logout(); const topNav2 = (navigation.getParent() as any) || (navigation as any); topNav2.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Main' }] })); } }
+                  { text: 'Evet', onPress: async () => { console.debug('[ReadyScreen] second alert confirmed - navigating to Main'); const topNav2 = (navigation.getParent() as any) || (navigation as any); topNav2.dispatch(CommonActions.reset({ index: 0, routes: [{ name: 'Main' }] })); } }
               ],
               { cancelable: false }
             );

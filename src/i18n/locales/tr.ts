@@ -72,7 +72,7 @@ export default {
     noDurationSet: 'Lütfen her beceri için süre belirleyin',
     saveSuccess: 'Beceriler başarıyla kaydedildi',
     saved: 'Beceriler kaydedildi!',
-    waitTime: 'Bekleme Süresi',
+  waitTime: 'Becerilerin Toplam Süresi',
     fixedRow: 'Sabit Satır',
     emptyState: 'Sol taraftan becerileri seçin',
     noSkillsSelected: 'Henüz beceri seçilmedi',

@@ -28,6 +28,7 @@ export type ParentTabsParamList = {
   Skills: undefined;
   Reinforcers: undefined;
   Progress: undefined;
+  Daily: { initialRange?: 'day' | 'week' | 'month' | 'all' } | undefined;
 };
 
 // Student Flow Stack
@@ -44,7 +45,9 @@ export type StudentFlowStackParamList = {
     // monotonic session start timestamp (Date.now() when session started)
     sessionStartTime?: number;
   };
-  SessionComplete: undefined;
+  SessionComplete: { sessionStartTime?: number; sessionEndTime?: number } | undefined;
+  // Screen that shows the earned reinforcer after confirmation
+  EarnedReinforcer: { reinforcer: { name: string; imageUri?: string } } | undefined;
 };
 
 // Navigation Props
@@ -87,3 +90,4 @@ export type WaitScreenRouteProp = RouteProp<StudentFlowStackParamList, 'Wait'>;
 export type SkillPresentationScreenNavigationProp = StackNavigationProp<StudentFlowStackParamList, 'SkillPresentation'>;
 export type SkillPresentationScreenRouteProp = RouteProp<StudentFlowStackParamList, 'SkillPresentation'>;
 export type SessionCompleteScreenNavigationProp = StackNavigationProp<StudentFlowStackParamList, 'SessionComplete'>;
+export type SessionCompleteScreenRouteProp = RouteProp<StudentFlowStackParamList, 'SessionComplete'>;

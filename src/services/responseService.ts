@@ -69,8 +69,18 @@ export async function initResponsesDB(): Promise<void> {
  */
 export async function saveResponse(record: ResponseRecord): Promise<void> {
   if (Platform.OS === 'web') {
-    console.warn('[ResponseService] SQLite not available on web, response not saved:', record);
-    return;
+    try {
+      const key = 'responses_web';
+      const raw = (globalThis as any)?.localStorage?.getItem(key);
+      const arr: ResponseRecord[] = raw ? JSON.parse(raw) : [];
+      arr.push(record);
+      (globalThis as any).localStorage && (globalThis as any).localStorage.setItem(key, JSON.stringify(arr));
+      console.log('[ResponseService] (web) Response saved to localStorage:', record.skillId, record.response);
+      return;
+    } catch (e) {
+      console.warn('[ResponseService] Failed to persist response to localStorage (web):', e);
+      return;
+    }
   }
 
   if (!db) {
@@ -106,8 +116,17 @@ export async function getResponsesByDate(
   sessionDate: string
 ): Promise<ResponseRecord[]> {
   if (Platform.OS === 'web') {
-    console.warn('[ResponseService] SQLite not available on web, returning empty responses.');
-    return [];
+    try {
+      const key = 'responses_web';
+      const raw = (globalThis as any)?.localStorage?.getItem(key);
+      const arr: ResponseRecord[] = raw ? JSON.parse(raw) : [];
+      const rows = arr.filter(r => r.userId === userId && r.sessionDate === sessionDate)
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+      return rows;
+    } catch (e) {
+      console.warn('[ResponseService] Failed to read responses from localStorage (web):', e);
+      return [];
+    }
   }
 
   if (!db) {

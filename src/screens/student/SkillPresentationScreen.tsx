@@ -100,27 +100,25 @@ const SkillPresentationScreen: React.FC = () => {
     setHasResponded(true);
     clearTimers();
 
-    // Save response to database
-    if (user) {
-      const now = Date.now();
-      const sessionDate = new Date(now).toISOString().split('T')[0]; // YYYY-MM-DD
-      
-      try {
-        await saveResponse({
-          userId: user.uid,
-          sessionDate,
-          skillId: currentSkill.skillId,
-          skillName: currentSkill.skillName,
-          response,
-          timestamp: now,
-        });
-        console.log('[SkillPresentation] Response saved:', response);
-      } catch (error) {
-        console.error('[SkillPresentation] Failed to save response:', error);
-        // Show alert but continue
-        if (Platform.OS !== 'web') {
-          Alert.alert('Uyarı', 'Cevap kaydedilemedi, ancak oturum devam ediyor.');
-        }
+    // Save response to database (use 'guest' as fallback userId when not signed in)
+    const now = Date.now();
+    const sessionDate = new Date(now).toISOString().split('T')[0]; // YYYY-MM-DD
+    const uidToUse = user?.uid || 'guest';
+    try {
+      await saveResponse({
+        userId: uidToUse,
+        sessionDate,
+        skillId: currentSkill.skillId,
+        skillName: currentSkill.skillName,
+        response,
+        timestamp: now,
+      });
+      console.log('[SkillPresentation] Response saved:', response, 'user:', uidToUse);
+    } catch (error) {
+      console.error('[SkillPresentation] Failed to save response:', error);
+      // Show alert but continue
+      if (Platform.OS !== 'web') {
+        Alert.alert('Uyarı', 'Cevap kaydedilemedi, ancak oturum devam ediyor.');
       }
     }
 
@@ -140,12 +138,19 @@ const SkillPresentationScreen: React.FC = () => {
 
     // Calculate blackout duration
     const nextIndex = currentIndex + 1;
-    if (nextIndex >= skills.length) {
+      if (nextIndex >= skills.length) {
       // Last skill finished — immediately end the session and navigate to SessionComplete.
       // Clear any pending timers and navigate without showing an inter-skill timer.
       clearTimers();
       setIsBlackout(false);
-      navigation.navigate('SessionComplete');
+      // Pass session start and end timestamps so SessionComplete can show them
+      try {
+        const endTs = Date.now();
+        navigation.navigate('SessionComplete', { sessionStartTime: sessionStartTime, sessionEndTime: endTs });
+      } catch (e) {
+        console.warn('[SkillPresentation] Failed to navigate with timestamps', e);
+        navigation.navigate('SessionComplete');
+      }
       return;
     } else {
       // Prefer using the per-skill interval from the schedule (intervalAfterPrevMs)

@@ -543,8 +543,11 @@ export default function App() {
         </View>
 
         {/* Sağ taraf - Seçili beceriler */}
-        <View style={styles.skillsRightPanel}>
-          <ScrollView style={styles.selectedSkillsScrollView} contentContainerStyle={{ flexGrow: 1 }}>
+        <View style={[
+          styles.skillsRightPanel,
+          Platform.OS === 'web' ? { maxHeight: '80vh', overflow: 'auto', touchAction: 'pan-y' } : {}
+        ]}>
+          <ScrollView style={styles.selectedSkillsScrollView} contentContainerStyle={{ paddingBottom: 20 }}>
             <View style={styles.modernPanelHeader}>
               <View style={styles.panelIconBox}>
                 <Text style={styles.panelHeaderIcon}>✅</Text>
@@ -763,6 +766,7 @@ const styles = StyleSheet.create({
   darkContainer: {
     flex: 1,
     backgroundColor: '#1E1E1E',
+    ...(Platform.OS === 'web' ? { minHeight: '100vh', overflowY: 'auto' } : {}),
   },
   loadingContainer: {
     flex: 1,
@@ -1184,6 +1188,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#1a1a1a',
     width: '100%',
     height: '100%',
+    ...(Platform.OS === 'web' ? { minHeight: '100vh', overflowY: 'auto' } : {}),
   },
   headerTop: {
     flexDirection: 'row',
@@ -1410,6 +1415,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 20,
     gap: 20,
+    ...(Platform.OS === 'web' ? { maxHeight: 'calc(100vh - 160px)', overflow: 'auto' } : {}),
   },
   skillsLeftPanel: {
     flex: 1,

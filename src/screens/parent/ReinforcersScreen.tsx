@@ -12,6 +12,8 @@ import {
   Alert,
   Modal,
   Platform,
+  Image,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -27,6 +29,8 @@ import { getAllReinforcers, insertReinforcer, updateReinforcer, deleteReinforcer
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
+import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 // Local types
 type Reinforcer = {
@@ -58,6 +62,15 @@ const defaultReinforcerIds = new Set(defaultReinforcers.map(d => d.id));
 
 const ReinforcersScreen: React.FC = () => {
   const { t } = useTranslation();
+
+  // Helper to detect whether a string is a valid image URI (data URL, http(s), file path, or filename)
+  const isLikelyImageUri = (uri?: string | null) => {
+    if (!uri) return false;
+    try {
+      const s = String(uri);
+      return s.startsWith('data:') || s.startsWith('http') || s.startsWith('file:') || s.startsWith('/') || /\.(png|jpe?g|gif|webp)$/i.test(s);
+    } catch (e) { return false; }
+  };
 
   // Helper: dedupe reinforcers by id (keep first occurrence)
   const dedupeReinforcers = (arr: Reinforcer[] | undefined) => {
@@ -106,6 +119,7 @@ const ReinforcersScreen: React.FC = () => {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name?: string } | null>(null);
   const [isLoadingUserData, setIsLoadingUserData] = React.useState(false);
   const [hasLoadedInitialData, setHasLoadedInitialData] = React.useState(false);
+  const [uploadingReinforcerId, setUploadingReinforcerId] = useState<string | null>(null);
   
   // CRITICAL FIX: Track loaded user ID to prevent auto-save during user switch
   const [loadedUserId, setLoadedUserId] = React.useState<string | null>(null);
@@ -271,8 +285,8 @@ const ReinforcersScreen: React.FC = () => {
 
   const loadReinforcers = async () => {
     try {
-      // Check if we're on web platform - SQLite not available
-      if (Platform.OS === 'web') {
+  // Check if we're on web platform by detecting the DOM (SQLite not available on web)
+  if (typeof (globalThis as any).document !== 'undefined') {
         console.log('[ReinforcersScreen] Web platform detected, using mock data or localStorage');
         try {
           const saved = typeof globalThis !== 'undefined' && (globalThis as any).localStorage ? (globalThis as any).localStorage.getItem('reinforcers_web') : null;
@@ -290,8 +304,9 @@ const ReinforcersScreen: React.FC = () => {
           const mockData = defaultReinforcers.map(r => ({
             id: r.id,
             name: r.name,
-            // Use the emoji/icon from data as a simple visual fallback on web
-            imageUri: r.icon || '',
+            // Do not store emoji into imageUri — keep emoji as `icon` for fallback rendering
+            imageUri: '',
+            icon: r.icon || '',
             slot: 0, // not assigned to slots yet
             order: 0,
             createdAt: new Date(),
@@ -307,14 +322,18 @@ const ReinforcersScreen: React.FC = () => {
           const mockData = defaultReinforcers.map(r => ({
             id: r.id,
             name: r.name,
-            imageUri: r.icon || '',
+            // Keep emoji separate in `icon`, leave imageUri empty so we can enrich with Unsplash
+            imageUri: '',
+            icon: r.icon || '',
             slot: 0,
             order: 0,
             createdAt: new Date(),
             updatedAt: new Date(),
             categoryId: (r as any).categoryId,
           }));
-          setReinforcers(dedupeReinforcers(mockData as unknown as Reinforcer[]));
+          // Enrich mock data with a representative Unsplash image
+          const enrichedMock = mockData.map(m => ({ ...m, imageUri: `https://source.unsplash.com/featured/?${encodeURIComponent(m.name.split(' ').slice(0,3).join(' '))}` }));
+          setReinforcers(dedupeReinforcers(enrichedMock as unknown as Reinforcer[]));
           // Do NOT populate slots here; slots are managed by per-user load effect
           return;
         }
@@ -323,32 +342,43 @@ const ReinforcersScreen: React.FC = () => {
       const data = await getAllReinforcers();
       
       // If no reinforcers in database, seed with default ones
-      if (data.length === 0) {
+  if (data.length === 0) {
         console.log('[ReinforcersScreen] No reinforcers found, seeding defaults...');
         await seedDefaultReinforcers();
         // Reload after seeding
         const seededData = await getAllReinforcers();
-        const reinforcersData: Reinforcer[] = seededData.map(r => ({
+        let reinforcersData: Reinforcer[] = seededData.map(r => ({
           id: r.id,
           name: r.name,
-          imageUri: r.image_uri,
+          // Keep actual image URI from DB only; fallback icon stored separately for emoji
+          imageUri: r.image_uri || '',
+          icon: defaultReinforcers.find(d => d.id === r.id)?.icon || '',
           slot: r.slot,
           order: r.order_index,
           createdAt: new Date(r.created_at),
           updatedAt: new Date(r.updated_at),
         }));
-        setReinforcers(dedupeReinforcers(reinforcersData));
+        // Enrich with Unsplash for those without images
+        const enriched = reinforcersData.map(r => ({ ...r, imageUri: isLikelyImageUri(r.imageUri) ? r.imageUri : `https://source.unsplash.com/featured/?${encodeURIComponent(r.name.split(' ').slice(0,3).join(' '))}` }));
+        setReinforcers(dedupeReinforcers(enriched));
+        // NOTE: We intentionally do NOT persist these Unsplash-derived thumbnails.
+        // They are for temporary display only and can be changed by the teacher.
       } else {
-        const reinforcersData: Reinforcer[] = data.map(r => ({
+        let reinforcersData: Reinforcer[] = data.map(r => ({
           id: r.id,
           name: r.name,
-          imageUri: r.image_uri,
+          // If DB has no image, leave imageUri empty and expose icon separately
+          imageUri: r.image_uri || '',
+          icon: defaultReinforcers.find(d => d.id === r.id)?.icon || '',
           slot: r.slot,
           order: r.order_index,
           createdAt: new Date(r.created_at),
           updatedAt: new Date(r.updated_at),
         }));
-        setReinforcers(dedupeReinforcers(reinforcersData));
+        const enriched2 = reinforcersData.map(r => ({ ...r, imageUri: isLikelyImageUri(r.imageUri) ? r.imageUri : `https://source.unsplash.com/featured/?${encodeURIComponent(r.name.split(' ').slice(0,3).join(' '))}` }));
+        setReinforcers(dedupeReinforcers(enriched2));
+        // NOTE: We intentionally do NOT persist these Unsplash-derived thumbnails.
+        // They are shown only in-memory so teachers can edit/change them later.
       }
       // Do NOT populate slots from the database-level slot field. Slot
       // assignments are user-specific and must be loaded via per-user
@@ -380,6 +410,97 @@ const ReinforcersScreen: React.FC = () => {
 
   // image upload removed for Reinforcers modal (name-only add)
 
+  // Image picker for reinforcers (library items)
+  const pickReinforcerImage = async (reinforcerId: string) => {
+    try {
+      setUploadingReinforcerId(reinforcerId);
+  if (typeof (globalThis as any).document !== 'undefined') {
+    // Create a hidden file input and trigger it
+    const input = (globalThis as any).document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e: any) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) {
+            setUploadingReinforcerId(null);
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const dataUrl = reader.result as string;
+              // Update in-memory state
+              const next = (reinforcers || []).map(r => r.id === reinforcerId ? { ...r, imageUri: dataUrl } : r);
+              setReinforcers(dedupeReinforcers(next));
+                  // If this reinforcer is currently assigned to any slot, update selectedSlots so the slot shows the new image
+                  setSelectedSlots(prev => prev.map(s => s && s.id === reinforcerId ? { ...s, imageUri: dataUrl } : s));
+              // Persist library to localStorage (strip slots)
+              try {
+                const cleaned = next.map(n => ({ ...n, slot: 0 }));
+                (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('reinforcers_web', JSON.stringify(cleaned));
+              } catch (e) { console.warn('[ReinforcersScreen] Failed to persist reinforcers to localStorage', e); }
+            } catch (err) {
+              console.warn('[ReinforcersScreen] web image read error', err);
+            } finally {
+              setUploadingReinforcerId(null);
+            }
+          };
+          reader.onerror = () => { setUploadingReinforcerId(null); };
+          reader.readAsDataURL(file);
+        };
+        input.click();
+        return;
+      }
+
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('İzin gerekli', 'Lütfen fotoğraf galerinize erişim izni verin.');
+        setUploadingReinforcerId(null);
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets || !result.assets[0]) {
+        setUploadingReinforcerId(null);
+        return;
+      }
+
+      // Resize/crop to square thumbnail
+      const asset = result.assets[0];
+      const manip = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 300, height: 300 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      // Update DB and local state
+      if (Platform.OS !== 'web') {
+        try {
+          await updateReinforcer(reinforcerId, { image_uri: manip.uri });
+        } catch (e) {
+          console.warn('[ReinforcersScreen] Failed to update reinforcer image in DB', e);
+        }
+      }
+
+      const next = (reinforcers || []).map(r => r.id === reinforcerId ? { ...r, imageUri: manip.uri } : r);
+      setReinforcers(dedupeReinforcers(next));
+  // Update any selected slot that references this reinforcer so the slot shows the thumbnail
+  setSelectedSlots(prev => prev.map(s => s && s.id === reinforcerId ? { ...s, imageUri: manip.uri } : s));
+      setUploadingReinforcerId(null);
+      await safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
+    } catch (error) {
+      console.error('[ReinforcersScreen] pickReinforcerImage error', error);
+      Alert.alert(t('errors.title'), t('errors.imagePicker'));
+      setUploadingReinforcerId(null);
+    }
+  };
+
   // Add new reinforcer
   const onAddReinforcer = async (data: ReinforcerFormData) => {
     try {
@@ -406,7 +527,7 @@ const ReinforcersScreen: React.FC = () => {
       };
 
       // Save to database
-      if (Platform.OS === 'web') {
+  if (typeof (globalThis as any).document !== 'undefined') {
         // On web, just update local state — dedupe to avoid duplicate keys
         const next = dedupeReinforcers([...(reinforcers || []), newReinforcer]);
         console.log('[ReinforcersScreen] Added (web) reinforcer:', newReinforcer, 'total now', next.length);
@@ -603,7 +724,7 @@ const ReinforcersScreen: React.FC = () => {
   const performDeleteReinforcer = async (id: string) => {
     try {
       // Native DB removal
-      if (Platform.OS !== 'web') {
+  if (typeof document === 'undefined') {
         await deleteReinforcerFromDB(id);
       }
 
@@ -764,51 +885,83 @@ const ReinforcersScreen: React.FC = () => {
                         items.map((reinforcer: any, idx) => {
                           if (!reinforcer || typeof reinforcer !== 'object') return null;
                           const rid = reinforcer.id || `reinforcer-unknown-${idx}`;
-                          return (
-                            // Use stable id key to avoid React re-use issues
-                            <View key={rid} style={styles.reinforcerItem}>
-                              <TouchableOpacity
-                                style={styles.reinforcerItemClickable}
-                                activeOpacity={0.7}
-                                onPress={() => {
-                                  const firstEmpty = selectedSlots.findIndex(s => s === null);
-                                  if (firstEmpty === -1) {
-                                    Alert.alert(t('errors.title'), t('reinforcers.noSlotsAvailable') || 'Tüm slotlar dolu');
-                                    return;
-                                  }
-                                  addToSlot(reinforcer, firstEmpty);
-                                }}
-                              >
-                                <Text style={styles.reinforcerName}>{String(reinforcer.name || '')}</Text>
-                                <Text style={styles.addIcon}>+</Text>
-                              </TouchableOpacity>
-
-                              {!defaultReinforcerIds.has(reinforcer.id) && (
+                            return (
+                              // Use stable id key to avoid React re-use issues
+                              <View key={rid} style={styles.reinforcerItem}>
                                 <TouchableOpacity
-                                  style={styles.deleteButton}
+                                  style={styles.reinforcerItemClickable}
                                   activeOpacity={0.7}
-                                  onPress={(e) => {
-                                    console.log('[ReinforcersScreen] Delete button pressed for:', reinforcer.id, reinforcer.name);
-                                    if (Platform.OS === 'web') {
-                                      e?.stopPropagation?.();
+                                  onPress={() => {
+                                    const firstEmpty = selectedSlots.findIndex(s => s === null);
+                                    if (firstEmpty === -1) {
+                                      Alert.alert(t('errors.title'), t('reinforcers.noSlotsAvailable') || 'Tüm slotlar dolu');
+                                      return;
                                     }
-                                    confirmDeleteReinforcer(reinforcer.id, reinforcer.name);
+                                    addToSlot(reinforcer, firstEmpty);
                                   }}
-                                  onPressIn={(e) => {
-                                    // Extra handler for web reliability
-                                    if (Platform.OS === 'web') {
-                                      console.log('[ReinforcersScreen] Delete button onPressIn');
-                                      e?.stopPropagation?.();
-                                    }
-                                  }}
-                                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                                  accessibilityLabel={t('reinforcers.delete')}
                                 >
-                                  <Text style={styles.deleteButtonText}>🗑️</Text>
+                                  {/* Thumbnail or emoji placeholder */}
+                                  {isLikelyImageUri(reinforcer.imageUri) ? (
+                                    <Image source={{ uri: reinforcer.imageUri as string }} style={styles.reinforcerImage} />
+                                  ) : (
+                                    <View style={[styles.reinforcerImage, styles.emojiPlaceholder]}>
+                                      <Text style={styles.emojiText}>{(reinforcer as any).icon || '🎁'}</Text>
+                                    </View>
+                                  )}
+
+                                  <View style={styles.reinforcerInfo}>
+                                    <Text style={styles.reinforcerName}>{String(reinforcer.name || '')}</Text>
+                                    {/* optional small slot badge */}
+                                    {reinforcer.slot ? <Text style={styles.reinforcerSlotBadge}>{`Slot ${reinforcer.slot}`}</Text> : null}
+                                  </View>
+
+                                  <Text style={styles.addIcon}>+</Text>
                                 </TouchableOpacity>
-                              )}
-                            </View>
-                          );
+
+                                {/* Upload button (library item only) */}
+                                <TouchableOpacity
+                                  style={styles.uploadButton}
+                                  activeOpacity={0.8}
+                                  onPress={(e) => {
+                                    if (Platform.OS === 'web') e?.stopPropagation?.();
+                                    pickReinforcerImage(reinforcer.id);
+                                  }}
+                                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                                  accessibilityLabel={t('reinforcers.uploadImage')}
+                                >
+                                  {uploadingReinforcerId === reinforcer.id ? (
+                                    <ActivityIndicator size="small" color="#fff" />
+                                  ) : (
+                                    <Text style={styles.uploadButtonText}>📷</Text>
+                                  )}
+                                </TouchableOpacity>
+
+                                {!defaultReinforcerIds.has(reinforcer.id) && (
+                                  <TouchableOpacity
+                                    style={styles.deleteButton}
+                                    activeOpacity={0.7}
+                                    onPress={(e) => {
+                                      console.log('[ReinforcersScreen] Delete button pressed for:', reinforcer.id, reinforcer.name);
+                                  if (typeof (globalThis as any).document !== 'undefined') {
+                                        e?.stopPropagation?.();
+                                      }
+                                      confirmDeleteReinforcer(reinforcer.id, reinforcer.name);
+                                    }}
+                                    onPressIn={(e) => {
+                                      // Extra handler for web reliability
+                                  if (typeof (globalThis as any).document !== 'undefined') {
+                                        console.log('[ReinforcersScreen] Delete button onPressIn');
+                                        e?.stopPropagation?.();
+                                      }
+                                    }}
+                                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                                    accessibilityLabel={t('reinforcers.delete')}
+                                  >
+                                    <Text style={styles.deleteButtonText}>🗑️</Text>
+                                  </TouchableOpacity>
+                                )}
+                              </View>
+                            );
                         })
                       )}
                     </View>
@@ -861,7 +1014,7 @@ const ReinforcersScreen: React.FC = () => {
                     setReinforcers(uniqueUpdated);
 
                     // Persist DB updates on native. On web persist selected slots per-user
-                    if (Platform.OS !== 'web') {
+                if (typeof (globalThis as any).document === 'undefined') {
                       data.forEach((r, idx) => {
                         updateReinforcer(r.id, { slot: idx + 1, order_index: 0 }).catch(e => console.error(e));
                       });
@@ -902,14 +1055,32 @@ const ReinforcersScreen: React.FC = () => {
                       activeOpacity={0.8}
                     >
                       <View style={styles.slotNumber}>
-                        <Text style={styles.slotNumberText}>{index + 1}</Text>
+                        <Text style={styles.slotNumberText}>{(item as any).slot ? (item as any).slot : (index + 1)}</Text>
                       </View>
 
-                      {/* Image/emoji removed from slot display per UX request */}
+                      {/* Show image (or emoji placeholder) for the sloted reinforcer */}
+                      {isLikelyImageUri((item as any).imageUri) ? (
+                        <Image source={{ uri: (item as any).imageUri as string }} style={styles.slotImage} />
+                      ) : (
+                        <View style={[styles.slotImage, styles.emojiPlaceholder]}>
+                          <Text style={styles.emojiText}>{(item as any).icon || '🎁'}</Text>
+                        </View>
+                      )}
 
                       <View style={styles.slotInfo}>
                         <Text style={styles.slotName} numberOfLines={1}>{item.name}</Text>
                       </View>
+
+                      {/* Remove / clear this slot */}
+                      <TouchableOpacity
+                        style={styles.removeSlotButton}
+                        activeOpacity={0.8}
+                        onPress={() => removeFromSlot(((item as any).slot ? (item as any).slot - 1 : index))}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel={t('reinforcers.removeFromSlot')}
+                      >
+                        <Text style={styles.removeSlotButtonText}>✕</Text>
+                      </TouchableOpacity>
 
                     </TouchableOpacity>
                   );
@@ -1340,6 +1511,19 @@ const styles = StyleSheet.create({
   },
   deleteButtonText: {
     fontSize: 18,
+  },
+  uploadButton: {
+    position: 'absolute',
+    right: 44,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    zIndex: 10,
+  },
+  uploadButtonText: {
+    fontSize: 16,
   },
   emptyLibrary: {
     flex: 1,

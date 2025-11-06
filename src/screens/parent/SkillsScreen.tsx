@@ -18,7 +18,6 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import GlobalTopActions from '../../components/GlobalTopActions';
-import HeaderTitle from '../../components/SharedHeader';
 import { useTranslation } from 'react-i18next';
 import DraggableFlatList, {
   RenderItemParams,
@@ -64,6 +63,8 @@ const SkillsScreen: React.FC = () => {
   const [categories, setCategories] = useState(() =>
     skillCategories.map(cat => ({ ...cat, skills: Array.isArray(cat.skills) ? [...cat.skills] : [] }))
   );
+  // Map of library-level images keyed by `${categoryId}||${skillName}`
+  const [libraryImages, setLibraryImages] = useState<Record<string,string>>({});
 
   // Load saved categories from localStorage on web so newly added skills persist across reloads
   React.useEffect(() => {
@@ -74,14 +75,37 @@ const SkillsScreen: React.FC = () => {
       const parsed = JSON.parse(raw);
       if (!Array.isArray(parsed)) return;
       // Normalize parsed structure: ensure each category has skills array
-      const normalized = parsed.map((c: any) => ({
-        ...c,
-        skills: Array.isArray(c?.skills) ? c.skills.filter((s: any) => typeof s === 'string') : [],
-      }));
+      // If the parsed category appears to be an unmodified copy of the default
+      // library (same number of skills), replace its skill strings with the
+      // current defaults from data/skillsData.js (which are now question-form).
+      const defaultMap = new Map(skillCategories.map(dc => [dc.id, dc]));
+      const normalized = parsed.map((c: any) => {
+        const skillsArr = Array.isArray(c?.skills) ? c.skills.filter((s: any) => typeof s === 'string') : [];
+        const def = defaultMap.get(c.id);
+        // If lengths match the default library, assume this is an unmodified
+        // stored copy and swap in the updated default (question-form) texts.
+        if (def && Array.isArray(def.skills) && skillsArr.length === def.skills.length) {
+          return { ...c, skills: [...def.skills] };
+        }
+        return { ...c, skills: skillsArr };
+      });
       setCategories(normalized);
-      console.log('[SkillsScreen] loaded categories from localStorage, count:', normalized.length);
+      console.log('[SkillsScreen] loaded categories from localStorage (merged with defaults), count:', normalized.length);
     } catch (e) {
       console.warn('[SkillsScreen] Failed to load categories from localStorage', e);
+    }
+  }, []);
+
+  // Load persisted library images on web
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    try {
+      const raw = (globalThis as any)?.localStorage?.getItem('skills_images_web');
+      if (!raw) return;
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') setLibraryImages(parsed);
+    } catch (e) {
+      console.warn('[SkillsScreen] Failed to load library images from localStorage', e);
     }
   }, []);
 
@@ -96,10 +120,44 @@ const SkillsScreen: React.FC = () => {
     }
   }, [categories]);
 
+  // Persist library images to localStorage on web when libraryImages change
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    try {
+      (globalThis as any).localStorage && (globalThis as any).localStorage.setItem('skills_images_web', JSON.stringify(libraryImages));
+    } catch (e) {
+      console.warn('[SkillsScreen] Failed to persist library images to localStorage', e);
+    }
+  }, [libraryImages]);
+
+  // Sync library-level images into any already-selected skills. This handles
+  // the case where a teacher adds/edits a library thumbnail after the skill
+  // was already added to the selected list: we copy the library image into
+  // the selected skill's imageUri so the thumbnail appears on the right panel.
+  React.useEffect(() => {
+    try {
+      Object.keys(libraryImages).forEach(key => {
+        const uri = libraryImages[key];
+        const parts = key.split('||');
+        if (parts.length !== 2) return;
+        const [, skillName] = parts;
+        const found = selectedSkills.find(s => s.skillName === skillName);
+        if (found && found.imageUri !== uri) {
+          updateSkill(found.skillId, { imageUri: uri });
+        }
+      });
+    } catch (e) {
+      console.warn('[SkillsScreen] Failed syncing library images to selected skills', e);
+    }
+  }, [libraryImages, selectedSkills, updateSkill]);
+
   // Local state
   const [openCategories, setOpenCategories] = useState<string[]>(
     skillCategories.map(c => c.id)
   );
+  // Image preview/lightbox state
+  const [previewImageUri, setPreviewImageUri] = useState<string | null>(null);
+  const [previewVisible, setPreviewVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [uploadingSkillId, setUploadingSkillId] = useState<string | null>(null);
 
@@ -108,6 +166,46 @@ const SkillsScreen: React.FC = () => {
   const [newSkillName, setNewSkillName] = useState('');
   const [newSkillCategory, setNewSkillCategory] = useState<string | null>(skillCategories?.[0]?.id || null);
   const [newSkillError, setNewSkillError] = useState<string | null>(null);
+  // New-skill modal image state
+  const [newSkillImageUri, setNewSkillImageUri] = useState<string | null>(null);
+  const [newSkillUploading, setNewSkillUploading] = useState(false);
+  // Transient hint visibility for add-skill modal
+  const [transientHintVisible, setTransientHintVisible] = useState(false);
+  const transientHintTimerRef = React.useRef<any>(null);
+
+  // Show transient hint when add modal opens or when user taps the hint area
+  const showTransientHint = React.useCallback(() => {
+    try {
+      setTransientHintVisible(true);
+      if (transientHintTimerRef.current) {
+        clearTimeout(transientHintTimerRef.current);
+      }
+      transientHintTimerRef.current = setTimeout(() => {
+        setTransientHintVisible(false);
+        transientHintTimerRef.current = null;
+      }, 3500);
+    } catch (e) {
+      console.warn('[SkillsScreen] showTransientHint error', e);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (addModalVisible) {
+      showTransientHint();
+    } else {
+      if (transientHintTimerRef.current) {
+        clearTimeout(transientHintTimerRef.current);
+        transientHintTimerRef.current = null;
+      }
+      setTransientHintVisible(false);
+    }
+    return () => {
+      if (transientHintTimerRef.current) {
+        clearTimeout(transientHintTimerRef.current);
+        transientHintTimerRef.current = null;
+      }
+    };
+  }, [addModalVisible, showTransientHint]);
 
   // Duplicate-add confirmation modal (when same skill is already selected)
   const [duplicateModalVisible, setDuplicateModalVisible] = useState(false);
@@ -140,12 +238,41 @@ const SkillsScreen: React.FC = () => {
     return selectedSkills.reduce((sum, skill) => sum + skill.duration, 0);
   }, [selectedSkills]);
 
-  // Image picker with square crop
-  const pickImage = async (skillId: string) => {
+  // NOTE: Selected-skill image uploads have been moved to the library; use
+  // `pickLibraryImage(categoryId, skillName)` to assign thumbnails at the
+  // library level. Selected skills only display thumbnails.
+
+  // New: pick image for a library skill (category + skillName)
+  const pickLibraryImage = async (categoryId: string, skillName: string) => {
     try {
+      const key = `${categoryId}||${skillName}`;
+      setUploadingSkillId(key);
+      if (typeof (globalThis as any).document !== 'undefined') {
+        const input = (globalThis as any).document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e: any) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) { setUploadingSkillId(null); return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const dataUrl = reader.result as string;
+              setLibraryImages(prev => ({ ...prev, [key]: dataUrl }));
+            } catch (err) { console.warn('[SkillsScreen] web library image read error', err); }
+            finally { setUploadingSkillId(null); }
+          };
+          reader.onerror = () => setUploadingSkillId(null);
+          reader.readAsDataURL(file);
+        };
+        input.click();
+        return;
+      }
+
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert(t('errors.permission'), t('errors.cameraPermission'));
+        setUploadingSkillId(null);
         return;
       }
 
@@ -156,24 +283,87 @@ const SkillsScreen: React.FC = () => {
         quality: 0.8,
       });
 
-      if (!result.canceled && result.assets[0]) {
-        setUploadingSkillId(skillId);
-        
-        // Square crop with ImageManipulator
-        const manipResult = await ImageManipulator.manipulateAsync(
-          result.assets[0].uri,
-          [{ resize: { width: 300, height: 300 } }],
-          { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
-        );
+      if (result.canceled || !result.assets || !result.assets[0]) { setUploadingSkillId(null); return; }
 
-  updateSkill(skillId, { imageUri: manipResult.uri });
-  await safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
-        setUploadingSkillId(null);
-      }
-    } catch (error) {
-      console.error('Image picker error:', error);
+      const asset = result.assets[0];
+      const manip = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 300, height: 300 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      setLibraryImages(prev => ({ ...prev, [key]: manip.uri }));
+      setUploadingSkillId(null);
+      await safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      console.error('[SkillsScreen] pickLibraryImage error', e);
       Alert.alert(t('errors.title'), t('errors.imagePicker'));
       setUploadingSkillId(null);
+    }
+  };
+
+  // Pick image specifically for the Add-Skill modal (requires name to be set)
+  const pickImageForNewSkill = async () => {
+    try {
+  const skillName = (newSkillName || '').trim();
+      if (!skillName) {
+        Alert.alert('Eksik bilgi', 'Lütfen önce beceri adını girin, sonra fotoğraf seçin.');
+        return;
+      }
+
+      setNewSkillUploading(true);
+      if (typeof (globalThis as any).document !== 'undefined') {
+        const input = (globalThis as any).document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = async (e: any) => {
+          const file = e.target.files && e.target.files[0];
+          if (!file) { setNewSkillUploading(false); return; }
+          const reader = new FileReader();
+          reader.onload = () => {
+            try {
+              const dataUrl = reader.result as string;
+              setNewSkillImageUri(dataUrl);
+            } catch (err) { console.warn('[SkillsScreen] web new-skill image read error', err); }
+            finally { setNewSkillUploading(false); }
+          };
+          reader.onerror = () => setNewSkillUploading(false);
+          reader.readAsDataURL(file);
+        };
+        input.click();
+        return;
+      }
+
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(t('errors.permission'), t('errors.cameraPermission'));
+        setNewSkillUploading(false);
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (result.canceled || !result.assets || !result.assets[0]) { setNewSkillUploading(false); return; }
+
+      const asset = result.assets[0];
+      const manip = await ImageManipulator.manipulateAsync(
+        asset.uri,
+        [{ resize: { width: 300, height: 300 } }],
+        { compress: 0.8, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      setNewSkillImageUri(manip.uri);
+      setNewSkillUploading(false);
+      await safeHaptic('notification', Haptics.NotificationFeedbackType.Success);
+    } catch (e) {
+      console.error('[SkillsScreen] pickImageForNewSkill error', e);
+      Alert.alert(t('errors.title'), t('errors.imagePicker'));
+      setNewSkillUploading(false);
     }
   };
 
@@ -194,12 +384,13 @@ const SkillsScreen: React.FC = () => {
     }
 
     const skillId = `${categoryId}-${skillName}-${Date.now()}`;
+    const libKey = `${categoryId}||${skillName}`;
     const newSkill: SelectedSkill = {
       skillId,
       skillName,
       order: selectedSkills.length + 1,
       duration: 5, // Default 5 minutes
-      imageUri: '',
+      imageUri: libraryImages[libKey] || '',
     };
 
     addSkill(newSkill);
@@ -311,6 +502,16 @@ const SkillsScreen: React.FC = () => {
       return next;
     });
 
+    // If user selected an image while creating the skill, persist it into libraryImages
+    try {
+      if (newSkillImageUri) {
+        const key = `${newSkillCategory}||${normalized}`;
+        setLibraryImages(prev => ({ ...prev, [key]: newSkillImageUri }));
+      }
+    } catch (e) {
+      console.warn('[SkillsScreen] failed to attach newSkillImage to libraryImages', e);
+    }
+
     // Ensure the category is open so user can see the newly added skill
     setOpenCategories(prev => prev.includes(newSkillCategory) ? prev : [...prev, newSkillCategory]);
 
@@ -319,6 +520,7 @@ const SkillsScreen: React.FC = () => {
     setNewSkillName('');
     setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null);
     setNewSkillError(null);
+    setNewSkillImageUri(null);
     setAddModalVisible(false);
   };
 
@@ -409,22 +611,16 @@ const SkillsScreen: React.FC = () => {
             <Text style={styles.skillOrderText}>{typeof index === 'number' ? index + 1 : item.order}</Text>
           </View>
           
-          {/* Image thumbnail */}
-          <TouchableOpacity 
-            style={styles.skillImageContainer}
-            onPress={() => pickImage(item.skillId)}
-            activeOpacity={0.7}
-          >
-            {uploadingSkillId === item.skillId ? (
-              <ActivityIndicator color="#4285F4" />
-            ) : item.imageUri ? (
+          {/* Image thumbnail - show only (no upload) */}
+          <View style={styles.skillImageContainer}>
+            {item.imageUri ? (
               <Image source={{ uri: item.imageUri }} style={styles.skillImage} />
             ) : (
               <View style={styles.skillImagePlaceholder}>
                 <Text style={styles.skillImagePlaceholderText}>+</Text>
               </View>
             )}
-          </TouchableOpacity>
+          </View>
 
           <View style={styles.skillInfo}>
             <Text style={styles.skillName} numberOfLines={2}>
@@ -548,6 +744,7 @@ const SkillsScreen: React.FC = () => {
                   {isOpen && (
                     <View style={styles.skillsList}>
                       {category.skills.map((skill, index) => {
+                        const libKeyLocal = `${category.id}||${skill}`;
                         // Determine if this skill is part of the original default list for this category
                         const originalCategory = skillCategories.find((c) => c.id === category.id);
                         const isDefaultSkill = !!originalCategory && Array.isArray(originalCategory.skills) && originalCategory.skills.includes(skill);
@@ -559,9 +756,45 @@ const SkillsScreen: React.FC = () => {
                               onPress={() => handleAddSkill(category.id, skill)}
                               activeOpacity={0.7}
                             >
+                              {/* Left thumbnail (library-level) - tappable to preview if image exists */}
+                              {libraryImages[libKeyLocal] ? (
+                                <TouchableOpacity
+                                  onPress={(e) => {
+                                    // Prevent parent add-skill on web when tapping the thumb
+                                    e?.stopPropagation?.();
+                                    setPreviewImageUri(libraryImages[libKeyLocal]);
+                                    setPreviewVisible(true);
+                                  }}
+                                  activeOpacity={0.9}
+                                >
+                                  <Image source={{ uri: libraryImages[libKeyLocal] }} style={[styles.libraryThumb, { marginRight: 8 }]} />
+                                </TouchableOpacity>
+                              ) : (
+                                <View style={[styles.libraryThumb, { marginRight: 8, backgroundColor: 'rgba(13,27,42,0.6)', alignItems: 'center', justifyContent: 'center' }]}>
+                                  <Text>{category.icon}</Text>
+                                </View>
+                              )}
+
                               <Text style={styles.skillItemText}>{skill}</Text>
                               <Text style={styles.addIcon}>+</Text>
                             </TouchableOpacity>
+
+                              {/* Library image upload / preview button */}
+                              <TouchableOpacity
+                                style={styles.uploadLibraryButton}
+                                onPress={(e) => {
+                                  if (Platform.OS === 'web') e?.stopPropagation?.();
+                                  pickLibraryImage(category.id, skill);
+                                }}
+                                activeOpacity={0.8}
+                              >
+                                {uploadingSkillId === `${category.id}||${skill}` ? (
+                                  <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                  // Always show camera emoji on the right upload button per UX request
+                                  <Text style={styles.uploadButtonText}>📷</Text>
+                                )}
+                              </TouchableOpacity>
 
                             {/* Show delete button only for user-added (non-default) skills */}
                             {!isDefaultSkill && (
@@ -654,16 +887,26 @@ const SkillsScreen: React.FC = () => {
         visible={addModalVisible}
         animationType="slide"
         transparent={true}
-        onRequestClose={() => { setAddModalVisible(false); setNewSkillName(''); setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null); setNewSkillError(null); }}
+        onRequestClose={() => { setAddModalVisible(false); setNewSkillName(''); setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null); setNewSkillError(null); setNewSkillImageUri(null); }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Yeni Beceri Ekle</Text>
-              <TouchableOpacity onPress={() => { setAddModalVisible(false); setNewSkillName(''); setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null); setNewSkillError(null); }}>
+              <TouchableOpacity onPress={() => { setAddModalVisible(false); setNewSkillName(''); setNewSkillCategory(categoriesOrdered?.[0]?.id || skillCategories?.[0]?.id || null); setNewSkillError(null); setNewSkillImageUri(null); }}>
                 <Text style={styles.modalCloseButton}>✕</Text>
               </TouchableOpacity>
             </View>
+
+            {/* Transient hint: appears briefly when modal opens, can be re-triggered by tapping */}
+            {transientHintVisible ? (
+              <TouchableOpacity activeOpacity={0.9} onPress={() => showTransientHint()}>
+                <Text style={styles.addSkillHint}>
+                  Becerilerinizi "yaptım" değil "yaptım mı?" şeklinde soru cümlesi şeklinde hazırlayın.
+                </Text>
+              </TouchableOpacity>
+            ) : null}
 
             {/* Name Input */}
             <TextInput
@@ -672,8 +915,32 @@ const SkillsScreen: React.FC = () => {
               placeholderTextColor="#666"
               value={newSkillName}
               onChangeText={(v) => { setNewSkillName(v); if (newSkillError) setNewSkillError(null); }}
+              onFocus={() => showTransientHint()}
             />
             {newSkillError ? <Text style={styles.errorText}>{newSkillError}</Text> : null}
+
+            {/* New-skill image picker / preview */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+              {newSkillImageUri ? (
+                <Image source={{ uri: newSkillImageUri }} style={[styles.libraryThumb, { marginRight: 12 }]} />
+              ) : (
+                <View style={[styles.libraryThumb, { marginRight: 12, backgroundColor: 'rgba(13,27,42,0.6)', alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ color: '#fff' }}>📷</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={{ paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#3D3D3D', borderRadius: 8 }}
+                onPress={() => pickImageForNewSkill()}
+                activeOpacity={0.8}
+              >
+                {newSkillUploading ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: '#fff' }}>{newSkillImageUri ? 'Değiştir' : 'Fotoğraf Ekle'}</Text>
+                )}
+              </TouchableOpacity>
+            </View>
 
             {/* Category selection */}
             <Text style={{ color: '#9CA3AF', fontSize: 14, marginBottom: 8 }}>Kategori seçin:</Text>
@@ -778,6 +1045,26 @@ const SkillsScreen: React.FC = () => {
                 <Text style={styles.submitButtonText}>Sil</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Image preview modal (lightbox) */}
+      <Modal
+        visible={previewVisible}
+        animationType="fade"
+        transparent={true}
+        onRequestClose={() => { setPreviewVisible(false); setPreviewImageUri(null); }}
+      >
+        <View style={styles.previewModalOverlay}>
+          <TouchableOpacity style={{ flex: 1, width: '100%' }} activeOpacity={1} onPress={() => { setPreviewVisible(false); setPreviewImageUri(null); }} />
+          <View style={{ position: 'absolute', left: 24, right: 24, top: 80, bottom: 80, justifyContent: 'center', alignItems: 'center' }}>
+            {previewImageUri ? (
+              <Image source={{ uri: previewImageUri }} style={styles.previewImageLarge} resizeMode="contain" />
+            ) : null}
+            <TouchableOpacity style={{ marginTop: 12 }} onPress={() => { setPreviewVisible(false); setPreviewImageUri(null); }}>
+              <Text style={{ color: '#fff' }}>Kapat</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -992,6 +1279,24 @@ const styles = StyleSheet.create({
     paddingRight: 68,
     borderWidth: 1,
     borderColor: 'rgba(100, 126, 234, 0.2)',
+  },
+  uploadLibraryButton: {
+    position: 'absolute',
+    right: 40,
+    top: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    zIndex: 9,
+  },
+  libraryThumb: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+  },
+  uploadButtonText: {
+    fontSize: 18,
   },
   skillItemClickable: {
     flex: 1,
@@ -1269,6 +1574,26 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
     color: '#FFFFFF',
+  },
+  previewModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.85)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewImageLarge: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 12,
+    backgroundColor: '#000',
+  },
+  addSkillHint: {
+    color: 'rgba(255,255,255,0.75)',
+    fontSize: 13,
+    marginHorizontal: 6,
+    marginBottom: 8,
+    lineHeight: 18,
+    textAlign: 'left',
   },
 });
 

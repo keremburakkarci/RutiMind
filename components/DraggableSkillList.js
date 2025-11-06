@@ -123,6 +123,66 @@ const DraggableSkillList = ({ skills = [], onReorder = () => {}, onRemove = () =
     };
   };
 
+  // On web, the pan gesture handlers interfere with native scrolling inside the right panel.
+  // To ensure the 'Seçili Beceriler' column is scrollable on web, render a non-gesture
+  // version of the list that preserves controls but allows the browser to handle scrolling.
+  if (Platform.OS === 'web') {
+    return (
+      <View style={[styles.container, { touchAction: 'pan-y' }]}> 
+        <View style={styles.topHeader}>
+          <Text style={styles.headerText}>Seçili Beceriler</Text>
+          <View style={styles.totalTimeContainer}>
+            <Text style={styles.totalTimeLabel}>Toplam Süre:</Text>
+            <TextInput
+              style={styles.totalTimeInput}
+              value={totalTime}
+              onChangeText={(t) => setTotalTime(t.replace(/[^0-9]/g, ''))}
+              keyboardType="number-pad"
+              placeholder="0"
+              placeholderTextColor="#64b5f6"
+              maxLength={4}
+            />
+            <Text style={styles.timeUnit}>dk</Text>
+          </View>
+        </View>
+
+        <View style={styles.listStaticContainer}>
+          {skills.map((skill, index) => (
+            <View key={skill} style={styles.skillItemStatic}>
+              <View style={styles.skillContent}>
+                <View style={styles.skillNumberBadge}>
+                  <Text style={styles.indexText}>{index + 1}</Text>
+                </View>
+                <Text style={styles.skillText}>{skill}</Text>
+                <View style={styles.timeContainer}>
+                  <Text style={styles.timeIcon}>⏱️</Text>
+                  <TextInput
+                    style={styles.timeInput}
+                    value={String(skillTimes[skill] || '')}
+                    onChangeText={(text) => setSkillTimes((prev) => ({ ...prev, [skill]: text.replace(/[^0-9]/g, '') }))}
+                    keyboardType="number-pad"
+                    placeholder="0"
+                    placeholderTextColor="#64b5f6"
+                    maxLength={4}
+                  />
+                  <Text style={styles.timeUnit}>dk</Text>
+                </View>
+                <TouchableOpacity style={styles.removeButton} onPress={() => handleRemoveSkill(skill)}>
+                  <Text style={styles.removeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <Text style={styles.saveButtonText}>Kaydet</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  // Native (iOS/Android) path keeps the original draggable implementation
   return (
     <GestureHandlerRootView style={styles.container}>
       <View style={styles.topHeader}>
@@ -208,6 +268,8 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: '#1a1a1a'
   },
+  // Ensure web container prefers vertical pan for touch devices
+  containerWeb: Platform.OS === 'web' ? { touchAction: 'pan-y' } : {},
   topHeader: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
@@ -261,6 +323,20 @@ const styles = StyleSheet.create({
     flex: 1, 
     marginTop: 12,
     paddingTop: 8
+  },
+  listStaticContainer: {
+    flex: 1,
+    marginTop: 12,
+    ...(Platform.OS === 'web' ? { maxHeight: '60vh', overflowY: 'auto' } : {}),
+  },
+  skillItemStatic: {
+    backgroundColor: '#2c3e50',
+    borderRadius: 16,
+    padding: 12,
+    marginBottom: 8,
+    borderWidth: 2,
+    borderColor: '#3D3D3D',
+    minHeight: ITEM_HEIGHT,
   },
   skillItem: { 
     position: 'absolute', 
@@ -359,9 +435,10 @@ const styles = StyleSheet.create({
     lineHeight: 20
   },
   saveButton: { 
-    position: 'absolute', 
-    bottom: 20, 
-    right: 20, 
+    position: Platform.OS === 'web' ? 'sticky' : 'absolute', 
+    bottom: Platform.OS === 'web' ? 0 : 20, 
+    right: Platform.OS === 'web' ? 'auto' : 20,
+    alignSelf: Platform.OS === 'web' ? 'stretch' : 'auto',
     backgroundColor: '#4285f4', 
     paddingVertical: 12, 
     paddingHorizontal: 24, 

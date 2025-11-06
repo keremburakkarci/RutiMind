@@ -6,16 +6,16 @@ export const skillCategories = [
     icon: '🏫',
     color: '#e74c3c', // Kırmızı
     skills: [
-      'Dersi dinlerken göz teması kurma',
-      'Öğretmenin yönergelerini beklemeden uygulamama',
-      'Derse başlamadan gerekli materyalleri hazırlama',
-      'El kaldırmadan konuşmama',
-      'Sandalyede uygun şekilde oturma',
-      'Derste dikkat dağıtıcı davranışları fark edip durdurma',
-      '"Sıra bende mi?" gibi öz kontrol cümleleri kullanma',
-      'Token ya da puan sistemiyle kendi davranışını izlemesi',
-      'Dersin sonunda materyalleri toplama',
-      'Dersten ayrılmadan önce öğretmenden izin isteme'
+      'Dersi dinlerken göz teması kurdum mu?',
+      'Öğretmenin yönergelerini beklemeden uygulamadım mı?',
+      'Derse başlamadan gerekli materyalleri hazırladım mı?',
+      'El kaldırmadan konuşmadım mı?',
+      'Sandalyede uygun şekilde oturdum mu?',
+      'Derste dikkat dağıtıcı davranışları fark edip durdurdum mu?',
+      '"Sıra bende mi?" gibi öz kontrol cümlelerini kullandım mı?',
+      'Token ya da puan sistemiyle kendi davranışımı izledim mi?',
+      'Dersin sonunda materyalleri topladım mı?',
+      'Dersten ayrılmadan önce öğretmenden izin istedim mi?'
     ]
   },
   {
@@ -24,15 +24,15 @@ export const skillCategories = [
     icon: '🧠',
     color: '#3498db', // Mavi
     skills: [
-      'Günlük ödev listesini takip etme',
-      'Ödevleri zamanında başlatma',
-      'Çalışma süresini timer ile yönetme',
-      'Bitirdiği ödevleri kontrol etme',
-      'Yardım gerektiğinde öğretmene uygun şekilde sorma',
-      'Görev bitince kendi kendine "bitti" diyerek işaretleme',
-      'Çalışma alanını düzenli tutma',
-      'Çalışma sırasında molaları planlama',
-      'Hatırlatıcı görselleri (checklist, planlayıcı) kullanma'
+      'Günlük ödev listesini takip ettim mi?',
+      'Ödevleri zamanında başlattım mı?',
+      'Çalışma süresini timer ile yönettim mi?',
+      'Bitirdiğim ödevleri kontrol ettim mi?',
+      'Yardım gerektiğinde öğretmene uygun şekilde sordum mu?',
+      'Görev bitince kendi kendime "bitti" diyerek işaretledim mi?',
+      'Çalışma alanımı düzenli tuttum mu?',
+      'Çalışma sırasında molaları planladım mı?',
+      'Hatırlatıcı görselleri (checklist, planlayıcı) kullandım mı?'
     ]
   },
   {
@@ -41,16 +41,16 @@ export const skillCategories = [
     icon: '🛍',
     color: '#f39c12', // Turuncu
     skills: [
-      'Market alışverişi listesi hazırlama',
-      'Ürün seçerken fiyat karşılaştırma',
-      'Kasada sıraya girip bekleme',
-      'Parayı doğru şekilde ödeme',
-      'Satıcıyla kısa sosyal etkileşim kurma',
-      'Aldığı eşyayı çantasına yerleştirme',
-      'Ulaşım aracına uygun şekilde binme/iniş',
-      'Günlük temizlik (elleri yıkama, diş fırçalama) rutinini bağımsız yürütme',
-      'Kendi kıyafetlerini seçip giyinme',
-      'Günlük görevleri (sofra kurma, odasını toplama) tamamladıktan sonra işaretleme'
+      'Market alışverişi listesi hazırladım mı?',
+      'Ürün seçerken fiyat karşılaştırdım mı?',
+      'Kasada sıraya girip bekledim mi?',
+      'Parayı doğru şekilde ödedim mi?',
+      'Satıcıyla kısa sosyal etkileşim kurdum mu?',
+      'Aldığım eşyayı çantama yerleştirdim mi?',
+      'Ulaşım aracına uygun şekilde bindim/indim mi?',
+      'Günlük temizlik rutinini (elleri yıkama, diş fırçalama) bağımsız sürdürebildim mi?',
+      'Kendi kıyafetimi seçip giyindim mi?',
+      'Günlük görevleri tamamladıktan sonra işaretledim mi?'
     ]
   },
   {
@@ -59,15 +59,15 @@ export const skillCategories = [
     icon: '💬',
     color: '#9b59b6', // Mor
     skills: [
-      'Kızgın veya üzgün hissettiğinde bunu ifade etme',
-      'Sakinleşme köşesi/teknikleri kullanma',
-      'Duygularını uygun sözcüklerle anlatma',
-      'Arkadaşına selam verme ve vedalaşma',
-      'Grup etkinliğinde sırayla konuşma',
-      'Başkasının duygularını tahmin etme',
-      'Aşırı tepki vermeden hayır yanıtını kabul etme',
-      'Sosyal hata yaptığında özür dileme',
-      'Kendi sakinleştirme kartlarını kullanma'
+      'Kızgın veya üzgün hissettiğimde bunu ifade ettim mi?',
+      'Sakinleşme köşesi/tekniklerini kullandım mı?',
+      'Duygularımı uygun sözcüklerle anlattım mı?',
+      'Arkadaşıma selam verip vedalaştım mı?',
+      'Grup etkinliğinde sırayla konuştum mu?',
+      'Başkasının duygularını tahmin etmeye çalıştım mı?',
+      'Aşırı tepki vermeden "hayır" yanıtını kabul ettim mi?',
+      'Sosyal bir hata yaptığımda özür diledim mi?',
+      'Kendi sakinleştirme kartlarımı kullandım mı?'
     ]
   },
   {
@@ -76,14 +76,14 @@ export const skillCategories = [
     icon: '🕒',
     color: '#27ae60', // Yeşil
     skills: [
-      'Günlük planını sabah gözden geçirme',
-      'Etkinlik geçişlerini zamanlayıcıyla takip etme',
-      'Zamanında derse başlama',
-      'Günlük görev listesini tamamladığında işaretleme',
-      'Molalardan sonra göreve geri dönme',
-      'Görsel zaman çizelgesine uygun hareket etme',
-      'Uyku, yemek ve temizlik rutinlerini sürdürme',
-      '"5 dakika kaldı" gibi hatırlatmaları fark edip hazırlık yapma'
+      'Günlük planımı sabah gözden geçirdim mi?',
+      'Etkinlik geçişlerini zamanlayıcıyla takip ettim mi?',
+      'Zamanında derse başladım mı?',
+      'Günlük görev listesini tamamladığımda işaretledim mi?',
+      'Molalardan sonra göreve geri döndüm mü?',
+      'Görsel zaman çizelgesine uygun hareket ettim mi?',
+      'Uyku, yemek ve temizlik rutinlerimi sürdürdüm mü?',
+      '"5 dakika kaldı" gibi hatırlatmaları fark edip hazırlık yaptım mı?'
     ]
   }
 ];
