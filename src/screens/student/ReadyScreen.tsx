@@ -13,6 +13,9 @@ import { useNavigation } from '@react-navigation/native';
 import type { ReadyScreenNavigationProp } from '../../navigation/types';
 import { useTranslation } from 'react-i18next';
 import { useSkillsStore } from '../../store/skillsStore';
+import MainMenuButton from '../../components/MainMenuButton';
+import { Alert } from 'react-native';
+import { useAuth } from '../../../hooks/useAuth';
 
 const ReadyScreen: React.FC = () => {
   const navigation = useNavigation<ReadyScreenNavigationProp>();
@@ -27,12 +30,38 @@ const ReadyScreen: React.FC = () => {
     navigation.goBack();
   };
 
+  const { logout } = useAuth();
+
+  const handleMainMenuPress = () => {
+    Alert.alert(
+      'Emin misiniz?',
+      'Ana menüye dönmek istediğinize emin misiniz?',
+      [
+        { text: 'Hayır', style: 'cancel' },
+        { text: 'Evet', onPress: () => {
+          Alert.alert(
+            'Son Onay',
+            'Gerçekten çıkmak istediğinize emin misiniz? Bu işlemi onaylamak için tekrar "Evet"e basın.',
+            [
+              { text: 'Hayır', style: 'cancel' },
+              { text: 'Evet', onPress: async () => { await logout(); (navigation.getParent() as any)?.navigate('Main'); } }
+            ],
+            { cancelable: false }
+          );
+        } }
+      ],
+      { cancelable: false }
+    );
+  };
+
   return (
     <View style={styles.container}>
       <LinearGradient
         colors={['#0a0a0a', '#1a1a2e', '#16213e']}
         style={styles.gradientBackground}
       >
+        {/* Main menu button (top center) */}
+        <MainMenuButton onPress={handleMainMenuPress} />
         <View style={styles.content}>
           <LinearGradient
             colors={['#2ECC71', '#27AE60']}
